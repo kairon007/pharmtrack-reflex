@@ -1,6 +1,8 @@
 // Phase 4: the live Android app. A thin Compose layer over the pure :core module —
 // the app module owns the Android services (file store, notifications, SharedPreferences)
 // and nothing else; every decision still lives in :core.
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -8,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.pharmtrack.reflex.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.tunnxo.medtrack"
