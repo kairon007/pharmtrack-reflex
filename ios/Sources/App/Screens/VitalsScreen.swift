@@ -1,3 +1,4 @@
+import Core
 import SwiftUI
 
 struct VitalsScreen: View {

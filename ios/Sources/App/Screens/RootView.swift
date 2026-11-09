@@ -1,3 +1,4 @@
+import Core
 import SwiftUI
 
 /// The shell: five tabs plus every form sheet, each bound directly to its machine's

@@ -1,3 +1,4 @@
+import Core
 import SwiftUI
 
 // Form chrome shared by the four add/edit screens: the legacy field look

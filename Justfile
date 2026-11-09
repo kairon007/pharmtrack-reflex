@@ -61,6 +61,19 @@ ios-run: ios-build
 	xcrun simctl install booted build/ios/DerivedData/Build/Products/Debug-iphonesimulator/PharmTrack.app
 	xcrun simctl launch booted com.tunnxo.medtrack
 
+# Install and Launch iOS App on a connected device
+# Usage: just ios-device-run <UDID>    (list devices with: xcrun devicectl list devices)
+ios-device-run device_id:
+	cd ios && xcodegen generate
+	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; \
+		xcodebuild -project ios/PharmTrack.xcodeproj -scheme PharmTrack \
+			-derivedDataPath build/ios/DerivedData \
+			-destination 'generic/platform=iOS' \
+			-allowProvisioningUpdates \
+			${APPLE_TEAM_ID:+DEVELOPMENT_TEAM="$APPLE_TEAM_ID"} build
+	xcrun devicectl device install app --device {{device_id}} build/ios/DerivedData/Build/Products/Debug-iphoneos/PharmTrack.app
+	xcrun devicectl device process launch --device {{device_id}} com.tunnxo.medtrack
+
 # --- Tests and the parity gate ---
 
 # Run the behavior suite on both platforms

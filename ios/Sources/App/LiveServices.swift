@@ -1,3 +1,4 @@
+import Core
 import Foundation
 import UserNotifications
 
@@ -5,7 +6,7 @@ import UserNotifications
 // Core never learns a file path, a bundle default or a notification center — all of that
 // lives here. The fixture adapters in RunnerKit remain the test surface.
 
-public struct LiveClock: Clock {
+public struct LiveClock: Core.Clock {
     public init() {}
     public func now() -> Instant { Instant(secondsSince1970: Date().timeIntervalSince1970) }
 }

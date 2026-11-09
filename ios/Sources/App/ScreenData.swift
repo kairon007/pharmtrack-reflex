@@ -1,3 +1,4 @@
+import Core
 import Foundation
 import SwiftUI
 
@@ -364,7 +365,7 @@ public struct VitalsDetailData {
 // MARK: - add_vital
 
 public struct AddVitalData {
-    public let mode: EditMode
+    public let mode: Core.EditMode
     public let type: VitalType
     public let valueText: String
     public let value2Text: String
@@ -375,7 +376,7 @@ public struct AddVitalData {
     public let unit: String
 
     init(_ emit: ReflexValue) {
-        mode = EditMode(rawValue: emit["mode"].text) ?? .add
+        mode = Core.EditMode(rawValue: emit["mode"].text) ?? .add
         type = VitalType(rawValue: emit["type"].text) ?? .weight
         valueText = emit["valueText"].text
         value2Text = emit["value2Text"].text
@@ -390,7 +391,7 @@ public struct AddVitalData {
 // MARK: - add_medication
 
 public struct AddMedicationData {
-    public let mode: EditMode
+    public let mode: Core.EditMode
     public let nameText: String
     public let dosageText: String
     public let instructionsText: String
@@ -399,7 +400,7 @@ public struct AddMedicationData {
     public let canSave: Bool
 
     init(_ emit: ReflexValue) {
-        mode = EditMode(rawValue: emit["mode"].text) ?? .add
+        mode = Core.EditMode(rawValue: emit["mode"].text) ?? .add
         nameText = emit["nameText"].text
         dosageText = emit["dosageText"].text
         instructionsText = emit["instructionsText"].text
@@ -412,7 +413,7 @@ public struct AddMedicationData {
 // MARK: - add_appointment
 
 public struct AddAppointmentData {
-    public let mode: EditMode
+    public let mode: Core.EditMode
     public let doctorNameText: String
     public let specialtyText: String
     public let typeText: String
@@ -422,7 +423,7 @@ public struct AddAppointmentData {
     public let canSave: Bool
 
     init(_ emit: ReflexValue) {
-        mode = EditMode(rawValue: emit["mode"].text) ?? .add
+        mode = Core.EditMode(rawValue: emit["mode"].text) ?? .add
         doctorNameText = emit["doctorNameText"].text
         specialtyText = emit["specialtyText"].text
         typeText = emit["typeText"].text
@@ -436,7 +437,7 @@ public struct AddAppointmentData {
 // MARK: - consultation_form
 
 public struct ConsultationFormData {
-    public let mode: EditMode
+    public let mode: Core.EditMode
     public let doctorNameText: String
     public let specialtyText: String
     public let date: Instant
@@ -446,7 +447,7 @@ public struct ConsultationFormData {
     public let linkedRows: [Medication]
 
     init(_ emit: ReflexValue, data: MedicalData) {
-        mode = EditMode(rawValue: emit["mode"].text) ?? .add
+        mode = Core.EditMode(rawValue: emit["mode"].text) ?? .add
         doctorNameText = emit["doctorNameText"].text
         specialtyText = emit["specialtyText"].text
         date = emit["date"].instantValue ?? .epoch

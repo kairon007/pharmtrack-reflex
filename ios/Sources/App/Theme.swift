@@ -1,3 +1,4 @@
+import Core
 import SwiftUI
 
 // The v0.0.19 palette, ported verbatim (SharedUI/Theme.swift). No Skip branches.
