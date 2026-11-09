@@ -1,0 +1,66 @@
+# Swift / SPM
+.build/
+Packages/
+Package.resolved
+# ...but the Reflex SwiftPM pin must be tracked — CI resolves Yams from it.
+!reflex/ios/Package.resolved
+!ios/Package.resolved
+.swiftpm/
+
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+*.xcuserstate
+*.xcresult
+
+# Android / Gradle
+.gradle/
+**/build/
+captures/
+*.apk
+*.aar
+local.properties
+.externalNativeBuild
+.cxx
+*.keystore
+!debug.keystore
+
+# Skip
+Android/generated/
+.sourcehash
+
+# OS & Editors
+.DS_Store
+venv
+scripts/release/venv
+.idea/
+!.idea/runConfigurations/
+*.run.xml
+
+# Secrets & local config
+.env
+.mcp.json
+**/keystore.properties
+.firebase/
+
+# Logs
+firebase-debug.log
+
+# Android Studio view-dump artifacts
+/view*.xml
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code local settings (per-user)
+.claude/settings.local.json
+.claude
+# Cloudflare worker dev secrets — local only, never published
+backend/.dev.vars

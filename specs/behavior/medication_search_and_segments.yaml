@@ -1,0 +1,272 @@
+schema: reflex/behavior/1
+id: medication_search_and_segments
+title: Today / Inventory / History filters and the search predicate
+nodes: [medication_tracker, app_root, dashboard]
+evidence:
+  - Sources/SharedUI/Medical/MedicationTrackerView.swift:26-54
+  - Sources/SharedUI/Medical/MedicationTrackerView.swift:124-130
+  - Sources/SharedUI/Medical/MedicationTrackerView.swift:148-175
+  - Sources/SharedUI/Medical/MedicationTrackerView.swift:326-343
+decisions: [D6, D8, D12]
+unpinned:
+  - "rendered time-of-day strings in History rows (D15)"
+
+cases:
+
+  - id: default_segment_is_today
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.segment
+            equals: today
+          - path: state.medication_tracker.searchQuery
+            equals: ""
+          - path: state.medication_tracker.totalCount
+            equals: 3
+
+  - id: today_groups_by_exact_schedule_string
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.todayGroups.Morning
+            equals: [$seed_medication_1, $seed_medication_2]
+          - path: state.medication_tracker.todayGroups.Afternoon
+            equals: [$seed_medication_3]
+          - path: state.medication_tracker.todayGroups.Evening
+            equals: []
+      - note: Grouping is case-sensitive string equality on the persisted value. An empty
+              group still renders its header with "Nothing scheduled".
+
+  - id: an_unknown_schedule_is_invisible_but_still_counted
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications:
+          - id: "00000000-0000-4000-8000-0000000000B1"
+            name: "Night Shift"
+            dosage: "5mg"
+            instructions: "Before bed"
+            schedule: "Night"
+            stock: 10
+            active: true
+          - id: "00000000-0000-4000-8000-0000000000B2"
+            name: "Lowercase Morning"
+            dosage: "5mg"
+            instructions: "With Food"
+            schedule: "morning"
+            stock: 10
+            active: true
+    steps:
+      - expect:
+          - path: state.medication_tracker.todayGroups.Morning
+            equals: []
+          - path: state.medication_tracker.todayGroups.Afternoon
+            equals: []
+          - path: state.medication_tracker.todayGroups.Evening
+            equals: []
+          - path: state.medication_tracker.totalCount
+            equals: 2
+          - path: state.medication_tracker.takenFraction
+            equals: 0.0
+      - note: |
+          Q3. Neither med renders in any Today group, yet the summary says "0 of 2 taken
+          today". A legacy file can hold any schedule string — the 1.0 enum must decode
+          unknown values without dropping the medication, and the grouping must stay
+          case-sensitive. Normalizing "morning" to Morning would change this count.
+
+  - id: inactive_medications_are_not_filtered_out
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSegment
+        args: { segment: inventory }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            count: 5
+          - path: state.medication_tracker.filteredMedications
+            contains: "$fixture:low_stock.medications[4].id"
+      - note: The tracker applies NO active filter on any segment. Only the notification
+              planner and the low-stock predicate exclude inactive meds.
+
+  - id: search_matches_name_and_instructions_case_insensitively
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSearch
+        args: { text: "vItAmIn" }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: [$seed_medication_1]
+          - path: state.medication_tracker.totalCount
+            equals: 1
+      - send: medication_tracker.setSearch
+        args: { text: "with food" }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: [$seed_medication_1]
+      - send: medication_tracker.setSearch
+        args: { text: "breakfast" }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: [$seed_medication_2]
+      - note: MedicationTrackerView.swift:27-34 — name OR instructions, lowercased on both sides.
+
+  - id: search_does_not_match_dosage_or_schedule
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSearch
+        args: { text: "1000IU" }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: []
+      - send: medication_tracker.setSearch
+        args: { text: "Morning" }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: []
+
+  - id: untrimmed_query_matches_nothing
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSearch
+        args: { text: " Vitamin D3 " }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: []
+          - path: state.medication_tracker.totalCount
+            equals: 0
+          - path: state.medication_tracker.takenFraction
+            equals: 0.0
+      - note: The query is not trimmed, so the surrounding spaces prevent a match on
+              "Vitamin D3". The zero-total branch must not divide by zero.
+
+  - id: search_applies_to_today_and_inventory_but_not_history
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSearch
+        args: { text: "zzzznomatch" }
+      - expect:
+          - path: state.medication_tracker.totalCount
+            equals: 0
+      - send: medication_tracker.setSegment
+        args: { segment: inventory }
+      - expect:
+          - path: state.medication_tracker.filteredMedications
+            equals: []
+      - send: medication_tracker.setSegment
+        args: { segment: history }
+      - expect:
+          - path: state.medication_tracker.historyLogIds
+            equals: [$seed_log_1]
+      - note: Q4. History reads data.logs directly and ignores searchText entirely.
+              MedicationTrackerView.swift:326-343.
+
+  - id: history_lists_all_dose_logs_in_storage_order
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSegment
+        args: { segment: history }
+      - expect:
+          - path: state.medication_tracker.historyLogIds
+            equals:
+              - "$fixture:legacy_pre_medication_id.logs[0].id"
+              - "$fixture:legacy_pre_medication_id.logs[1].id"
+              - "$fixture:legacy_pre_medication_id.logs[2].id"
+      - note: No sort, no limit, no date filter. Yesterday's log is included. The row shows
+              time-of-day only, so the two days are visually indistinguishable — preserved.
+
+  - id: segment_change_preserves_the_search_query
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSearch
+        args: { text: "atorva" }
+      - send: medication_tracker.setSegment
+        args: { segment: inventory }
+      - expect:
+          - path: state.medication_tracker.searchQuery
+            equals: "atorva"
+          - path: state.medication_tracker.filteredMedications
+            equals: [$seed_medication_2]
+
+  - id: summary_counts_are_search_filtered
+    divergence: D6
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.takenTodayCount
+            equals: 1
+          - path: state.medication_tracker.totalCount
+            equals: 3
+          - path: state.medication_tracker.takenLabel
+            equals: "1 of 3 taken today"
+          - path: state.medication_tracker.allTaken
+            equals: false
+      - send: medication_tracker.setSearch
+        args: { text: "atorva" }
+      - expect:
+          - path: state.medication_tracker.totalCount
+            equals: 1
+          - path: state.medication_tracker.takenTodayCount
+            equals: 0
+          - path: state.medication_tracker.takenFraction
+            equals: 0.0
+      - send: medication_tracker.setSearch
+        args: { text: "vitamin" }
+      - expect:
+          - path: state.medication_tracker.takenTodayCount
+            equals: 1
+          - path: state.medication_tracker.takenFraction
+            equals: 1.0
+          - path: state.medication_tracker.allTaken
+            equals: true
+      - note: |
+          D7's repaired seed makes the Vitamin D3 row actually checked, so searching to it
+          yields a genuine 1 of 1. Under the old Omega-3 seed the count was 1 while no row
+          was checked, and the legacy min() clamp was the only thing hiding it.
+
+  - id: empty_history_state
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.setSegment
+        args: { segment: history }
+      - expect:
+          - path: state.medication_tracker.historyLogIds
+            equals: []
+
+  - id: dashboard_view_all_lands_on_history
+    divergence: D12
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: dashboard.tapRecentActivityViewAll
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 2
+          - path: state.medication_tracker.segment
+            equals: history
+          - path: state.medication_tracker.historyLogIds
+            equals: [$seed_log_1]
+      - note: v0.0.19 set selectedTab = 4, which is Vitals. The tab and the segment are set
+              by one root action so the segment cannot be left stale.

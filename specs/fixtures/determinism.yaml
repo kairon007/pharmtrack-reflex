@@ -1,0 +1,75 @@
+# Determinism manifest. Without this the behavior suite is not reproducible and the
+# entire parity premise collapses — every reducer branch that reads Date() or UUID()
+# would produce different results on each run and on each platform.
+
+clock:
+  now: "2026-11-07T12:00:00Z"
+  timezone: UTC
+  rationale: |
+    Live adapters use the device timezone (Calendar.current on iOS). Specs pin UTC so
+    day-boundary logic is reproducible. Both platforms MUST resolve "today" using this
+    pinned zone, not the host machine's zone, or the suite passes on one CI runner and
+    fails on another.
+  derived_instants:
+    start_of_today: "2026-11-07T00:00:00Z"
+    yesterday_noon: "2026-11-06T12:00:00Z"
+    four_hours_ago: "2026-11-07T08:00:00Z"
+    thirty_days_ago: "2026-10-08T12:00:00Z"
+    seven_days_ago: "2026-10-31T12:00:00Z"
+    thirty_days_back: "2026-10-08T12:00:00Z"
+    ninety_days_ago: "2026-08-09T12:00:00Z"
+    tomorrow_noon: "2026-11-08T12:00:00Z"
+
+ids:
+  description: |
+    Fixed sequence handed out by the IDGenerator fixture. Version/variant nibbles are
+    v4-shaped so the values are valid UUIDs everywhere. Exhausting the sequence is a
+    test failure, never a wrap-around.
+  reserved:
+    seed_appointment_1: "00000000-0000-4000-8000-000000000001"
+    seed_medication_1:  "00000000-0000-4000-8000-000000000002"
+    seed_medication_2:  "00000000-0000-4000-8000-000000000003"
+    seed_medication_3:  "00000000-0000-4000-8000-000000000004"
+    seed_consultation_1: "00000000-0000-4000-8000-000000000005"
+    seed_vital_1:       "00000000-0000-4000-8000-000000000006"
+    seed_log_1:         "00000000-0000-4000-8000-000000000007"
+  sequence:
+    - "00000000-0000-4000-8000-000000000101"
+    - "00000000-0000-4000-8000-000000000102"
+    - "00000000-0000-4000-8000-000000000103"
+    - "00000000-0000-4000-8000-000000000104"
+    - "00000000-0000-4000-8000-000000000105"
+    - "00000000-0000-4000-8000-000000000106"
+    - "00000000-0000-4000-8000-000000000107"
+    - "00000000-0000-4000-8000-000000000108"
+    - "00000000-0000-4000-8000-000000000109"
+    - "00000000-0000-4000-8000-00000000010A"
+  rule: |
+    Actions that create more than one entity (markMedicationTaken updates a med AND writes
+    a log) consume IDs in a fixed order. Journeys must assert against the sequence, so the
+    order is part of the contract: markMedicationTaken consumes exactly ONE id, for the log.
+
+key_value:
+  hasCompletedOnboarding: false
+  note: Individual journeys override this. See index.yaml.
+
+scheduler:
+  mode: immediate
+  rule: |
+    after(seconds, message) fires synchronously on flush(). Delays are never asserted.
+    Per decision #2, vitals_detail's 0.9s highlight clear is verified by eventual state only.
+
+seed:
+  source: MedicalViewModel.populateMockData() @ 3887aa8b
+  canonical_platform: iOS
+  resolved_asymmetry: |
+    v0.0.19 builds different seed dates per platform:
+      iOS     — appointment at 14:30 today, med1 nextDose at 09:00 today
+      Android — both fall back to plain `today` (the #else branch of #if !SKIP)
+    The fixture pins the iOS values as canonical for BOTH platforms. This asymmetry is
+    eliminated, not ported.
+  consequence: |
+    With now = 12:00Z, med1's 09:00 nextDose is in the PAST. The dashboard still shows it as
+    "Next dose" (nextMedication sorts but does not filter by future), while the notification
+    planner correctly skips it via the trigger > now guard. That divergence is real v0.0.19
+    behavior and is asserted, not smoothed over.

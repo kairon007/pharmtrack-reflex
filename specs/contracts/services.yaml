@@ -1,0 +1,159 @@
+# Service contracts — language-agnostic. Implemented twice (Swift protocol / Kotlin interface),
+# never shared. Core depends only on these; live adapters live outside Core.
+#
+# Every contract has a fixture adapter so journeys run headlessly with no simulator,
+# no filesystem, no clock and no notification permission.
+
+Clock:
+  purpose: Removes every Date() call from reducers and selectors.
+  operations:
+    now: "() -> Instant"
+  live:
+    ios: Date()
+    android: java.time.Instant.now()
+  fixture:
+    source: fixtures/determinism.yaml#clock
+    behavior: Returns the pinned instant. `advance(seconds)` is driven by the spec, never by Core.
+  consumers:
+    - dashboard greeting (hour of day)
+    - upcoming appointments filter (date >= now)
+    - vitals range cutoffs (7/30/90 days)
+    - calendar week strips and selected-day comparisons
+    - takenTodayCount (isDateInToday)
+    - notification planner past-date guards
+    - markMedicationTaken next-dose (+86400s)
+  rule: |
+    "Today" is defined by Calendar.current in the user's locale/timezone on iOS. Kotlin must
+    use the same zone rule, not UTC, or day-boundary journeys will diverge. Pin the timezone
+    in determinism.yaml.
+
+IDGenerator:
+  purpose: Removes UUID() from model constructors so created entities have stable IDs under test.
+  operations:
+    next: "() -> UUID"
+  live:
+    ios: UUID()
+    android: java.util.UUID.randomUUID()
+  fixture:
+    source: fixtures/determinism.yaml#ids
+    behavior: Returns the next UUID from a fixed sequence; exhausts loudly rather than wrapping.
+  rule: Core MUST NOT construct a UUID directly. Entities arrive at the reducer with IDs already
+        assigned by the effect that services the action.
+
+Scheduler:
+  purpose: Replaces Task.sleep and DispatchQueue.asyncAfter. Test adapter fires immediately.
+  operations:
+    after: "(seconds: Double, message: MessageToken) -> Cancellable"
+    cancel: "(Cancellable) -> Void"
+  live:
+    ios: Task.sleep / DispatchQueue.main.asyncAfter
+    android: coroutine delay on the VM scope
+  fixture:
+    behavior: Fires the message synchronously on `flush()`. Journeys never assert wall-clock timing.
+  consumers:
+    - onboarding overlay reveal (3.5s) — app_root / onboarding
+    - onboarding auto-scroll demo (0.5s then 2.5s) — dashboard, consultations, medication_tracker, vitals
+    - vitals_detail highlight auto-clear (0.9s) — assert eventual state only
+  removed: |
+    The 0.1s sleep after clearData() in MainTabView is a race workaround, not a delay. It is
+    deleted, not ported: the onboarding completion transitions on the store's clear-completed
+    message instead.
+
+KeyValueStore:
+  purpose: Replaces @AppStorage.
+  operations:
+    bool: "(key: String) -> Bool?"
+    setBool: "(key: String, value: Bool) -> Void"
+  live:
+    ios: UserDefaults.standard
+    android: SharedPreferences
+  fixture: in-memory map, seeded from the journey
+  keys:
+    hasCompletedOnboarding: see persistence.yaml#key_value_store
+
+MedicalStore:
+  purpose: The medical_data.json file, behind an async boundary.
+  operations:
+    load: "() async throws -> MedicalData?"
+    save: "(MedicalData) async throws -> Void"
+    clear: "() async throws -> Void"
+  semantics:
+    load: nil when the file is absent; throws when present but unparseable. Never returns
+          partial data. Leniency rules per persistence.yaml#leniency.
+    save: Full overwrite, not a patch. Creates the parent directory if missing.
+    clear: Removes the file. Idempotent — clearing an absent file is success, not an error.
+  live:
+    ios: FileManager + JSONEncoder/JSONDecoder, .iso8601
+    android: java.io.File + kotlinx.serialization
+  fixture:
+    behavior: In-memory slot seeded from a named fixture. `save` records the written value so
+              journeys can assert persistence without a filesystem. Failures are injectable
+              via `failNext(error)` to drive the load-error branches.
+  rule: Core never learns the file path. That belongs to the live adapter.
+
+NotificationScheduler:
+  purpose: Thin adapter. ALL scheduling logic lives in the pure NotificationPlanner reducer.
+  operations:
+    requestAuthorization: "() async -> Bool"
+    replaceAll: "([ScheduledNotification]) async -> Void"
+  semantics:
+    replaceAll: |
+      CANONICAL: cancel every pending notification, then schedule the supplied set.
+      This is the iOS v0.0.19 behavior (removeAllPendingNotificationRequests). Android's
+      incremental path is a bug and is NOT ported. The planner's output is always the
+      complete desired set, never a delta.
+  live:
+    ios: UNUserNotificationCenter
+    android: AlarmManager + NotificationCompat, canceling by the same stable identifiers
+  fixture:
+    behavior: Records the last replaceAll argument. Journeys assert the planned set, never
+              delivered notifications.
+
+# --- Pure planner (not a service; lives in Core, written twice, parity-tested) ---
+
+NotificationPlanner:
+  signature: "plan(data: MedicalData, now: Instant) -> [ScheduledNotification]"
+  purity: No clock, no I/O, no platform calls. `now` is an argument.
+  gates:
+    - allNotificationsEnabled false => empty set, regardless of other flags
+    - medicationsEnabled => one per active medication with nextDose set and trigger > now
+    - lowStockEnabled => one per active medication with stock <= lowStockThreshold
+    - appointmentsEnabled => one per appointment with notify true, date in future, trigger > now
+    - consultationsEnabled => one per consultation with date in future, trigger > now
+  offsets:
+    medication: nextDose + ReminderTime offset (medicationReminderTime)
+    appointment: date + ReminderTime offset (appointmentReminderTime)
+    consultation: date + ReminderTime offset (appointmentReminderTime). D9 — v0.0.19 used a
+                  fixed -86400s and ignored the setting; Reflex honors it. The default
+                  "1 day before" reproduces the legacy -24h exactly, so default behavior is
+                  unchanged. There is no consultation-specific time picker.
+    lowStock: immediate, no trigger date
+  guard: After applying the offset, re-check trigger > now. An appointment 30 minutes away with
+         a "1 day before" reminder produces NO notification.
+  channels:
+    - medication_reminders
+    - low_stock_alerts
+    - appointment_reminders
+    - consultation_reminders
+
+ScheduledNotification:
+  fields:
+    identifier: String   # "med-<uuid>" | "lowstock-<uuid>" | "appt-<uuid>" | "consult-<uuid>"
+    channel: String
+    title: String
+    body: String
+    triggerAt: Instant?  # nil for low-stock (immediate)
+  identifier_rule: |
+    Stable per entity so replaceAll can cancel deterministically. v0.0.19 Android hashes the
+    identifier to an Int for notify(); Reflex cancels by the same stable key on both platforms.
+  strings:
+    medication_title: "Medication Reminder"
+    medication_body: "Time to take {name} ({dosage}). {instructions}"
+    lowStock_title: "Low Medication Stock"
+    lowStock_body: "You only have {stock} doses left of {name}."
+    appointment_title: "Upcoming Appointment"
+    appointment_body: "You have an appointment with {doctorName} at {location}."
+    consultation_title: "Upcoming Consultation"
+    consultation_body: "You have a consultation with {doctorName}."
+  rule: Copy is part of the contract. Both platforms emit identical strings; localization is
+        a later concern and must not fork the planner.

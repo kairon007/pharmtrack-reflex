@@ -1,0 +1,394 @@
+schema: reflex/behavior/1
+id: consultation_crud
+title: Add, edit, delete, link and unlink medications, search and initials
+nodes: [consultations, consultation_form, medication_picker, app_root]
+evidence:
+  - Sources/SharedUI/Medical/ConsultationsView.swift:130-140
+  - Sources/SharedUI/Medical/ConsultationsView.swift:191-196
+  - Sources/SharedUI/Medical/NewConsultationView.swift:88-136
+  - Sources/SharedUI/Medical/NewConsultationView.swift:217-271
+  - Sources/AppModel/MedicalViewModel.swift:158-161
+  - Sources/AppModel/MedicalViewModel.swift:193-198
+  - Sources/AppModel/MedicalViewModel.swift:207-212
+  - Sources/AppModel/MedicalViewModel.swift:236-241
+decisions: [D10, D13]
+unpinned:
+  - "rendered last-visit date strings (D15)"
+
+cases:
+
+  - id: save_requires_a_non_empty_doctor_name
+    divergence: D13
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openAdd
+      - expect:
+          - path: state.consultation_form.canSave
+            equals: false
+      - send: consultation_form.setDoctorName
+        args: { text: "   " }
+      - expect:
+          - path: state.consultation_form.canSave
+            equals: false
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations.count
+            equals: 0
+          - path: ids.consumed
+            equals: 0
+      - send: consultation_form.setDoctorName
+        args: { text: " Dr. Alice Rao " }
+      - expect:
+          - path: state.consultation_form.canSave
+            equals: true
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations.count
+            equals: 1
+          - path: data.consultations[0].doctorName
+            equals: " Dr. Alice Rao "
+      - note: |
+          NEW GATE. v0.0.19 had no .disabled and no guard anywhere in NewConsultationView,
+          so a blank consultation saved. D13 adds a TRIMMED non-empty check on doctorName
+          only. The saved value is still untrimmed — the gate trims, the writer does not.
+
+  - id: specialty_and_notes_remain_optional
+    divergence: D13
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openAdd
+      - send: consultation_form.setDoctorName
+        args: { text: "Dr. Solo" }
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations[0].specialty
+            equals: ""
+          - path: data.consultations[0].notes
+            equals: ""
+          - path: data.consultations[0].linkedMedications
+            equals: []
+      - note: Consultation.notes is a non-optional String, so empty persists as "" and never
+              as null. That asymmetry with Appointment.notes is why null_on_required.json
+              throws. MedicalModels.swift:113.
+
+  - id: new_consultations_insert_at_the_front
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openAdd
+      - send: consultation_form.setDoctorName
+        args: { text: "First Added" }
+      - send: consultation_form.setDate
+        args: { date: "2026-10-01T10:00:00Z" }
+      - send: consultation_form.save
+      - flush: all
+      - send: consultations.openAdd
+      - send: consultation_form.setDoctorName
+        args: { text: "Second Added" }
+      - send: consultation_form.setDate
+        args: { date: "2026-09-01T10:00:00Z" }
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations[0].doctorName
+            equals: "Second Added"
+          - path: data.consultations[1].doctorName
+            equals: "First Added"
+          - path: state.consultations.filteredIds
+            equals: [$2, $1]
+      - note: Newest-ADDED-first, not date order. MedicalViewModel.swift:158-161. The list
+              applies no sort, so an older-dated consultation added later still leads.
+
+  - id: edit_replaces_in_place_without_re_sorting
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openEdit
+        args: { consultationId: $seed_consultation_1 }
+      - expect:
+          - path: state.consultation_form.mode
+            equals: edit
+          - path: state.consultation_form.doctorNameText
+            equals: "Dr. Sarah Jenkins"
+          - path: state.consultation_form.specialtyText
+            equals: "Cardiologist"
+          - path: state.consultation_form.notesText
+            equals: "Continue 5mg Lisinopril daily; follow-up in 3 months."
+      - send: consultation_form.setSpecialty
+        args: { text: "Electrophysiology" }
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations[0].id
+            equals: $seed_consultation_1
+          - path: data.consultations[0].specialty
+            equals: "Electrophysiology"
+          - path: ids.consumed
+            equals: 0
+          - path: store.writeCount
+            equals: 1
+      - note: MedicalViewModel.swift:236-241 replaces by id with no re-sort.
+
+  - id: delete_a_consultation
+    divergence: D10
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.delete
+        args: { consultationId: $seed_consultation_1 }
+      - flush: all
+      - expect:
+          - path: data.consultations.count
+            equals: 0
+          - path: state.consultations.totalCount
+            equals: 0
+          - path: store.writeCount
+            equals: 1
+      - note: |
+          NEW IN 1.0. deleteConsultation existed at MedicalViewModel.swift:207-212 with zero
+          call sites. Immediate, no confirmation, no undo — matching the vital and
+          appointment delete affordances rather than introducing a fourth pattern.
+
+  - id: search_matches_doctor_or_specialty_only
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.setSearch
+        args: { text: "sArAh" }
+      - expect:
+          - path: state.consultations.filteredIds
+            equals: [$seed_consultation_1]
+      - send: consultations.setSearch
+        args: { text: "CARDIO" }
+      - expect:
+          - path: state.consultations.filteredIds
+            equals: [$seed_consultation_1]
+      - send: consultations.setSearch
+        args: { text: "Lisinopril" }
+      - expect:
+          - path: state.consultations.filteredIds
+            equals: []
+      - note: ConsultationsView.swift:130-140. Notes are NOT searched.
+
+  - id: the_count_badge_shows_the_total_not_the_filtered_count
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.setSearch
+        args: { text: "zzzznomatch" }
+      - expect:
+          - path: state.consultations.filteredIds
+            equals: []
+          - path: state.consultations.totalCount
+            equals: 1
+      - note: Q11. ConsultationsView.swift:35 reads data.consultations.count directly.
+
+  - id: initials_take_the_first_two_tokens
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        consultations:
+          - id: "00000000-0000-4000-8000-0000000000C1"
+            doctorName: "Dr. Sarah Jenkins"
+            specialty: "Cardiologist"
+            date: "2026-10-08T12:00:00Z"
+            notes: ""
+            linkedMedications: []
+          - id: "00000000-0000-4000-8000-0000000000C2"
+            doctorName: "Madonna"
+            specialty: "Singer"
+            date: "2026-10-08T12:00:00Z"
+            notes: ""
+            linkedMedications: []
+          - id: "00000000-0000-4000-8000-0000000000C3"
+            doctorName: "   "
+            specialty: "Unknown"
+            date: "2026-10-08T12:00:00Z"
+            notes: ""
+            linkedMedications: []
+          - id: "00000000-0000-4000-8000-0000000000C4"
+            doctorName: "  Anna   Maria   Lopez  "
+            specialty: "Dermatology"
+            date: "2026-10-08T12:00:00Z"
+            notes: ""
+            linkedMedications: []
+    steps:
+      - expect:
+          - path: state.consultations.initials[00000000-0000-4000-8000-0000000000C1]
+            equals: "DS"
+          - path: state.consultations.initials[00000000-0000-4000-8000-0000000000C2]
+            equals: "M"
+          - path: state.consultations.initials[00000000-0000-4000-8000-0000000000C3]
+            equals: "?"
+          - path: state.consultations.initials[00000000-0000-4000-8000-0000000000C4]
+            equals: "AM"
+      - note: |
+          Q12. "Dr. Sarah Jenkins" yields "DS" because the honorific is the first token.
+          Repeated and leading spaces collapse because split drops empty subsequences.
+          Kotlin's split(" ") without filtering empties would produce "" for the second
+          token and diverge — the filter is part of the contract.
+
+  - id: picker_selection_is_live_and_dismiss_does_not_revert
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openEdit
+        args: { consultationId: $seed_consultation_1 }
+      - send: consultation_form.presentPicker
+      - expect:
+          - path: state.medication_picker.availableIds
+            equals: [$seed_medication_1, $seed_medication_2, $seed_medication_3]
+          - path: state.medication_picker.selectedIds
+            equals: []
+      - send: medication_picker.toggle
+        args: { medicationId: $seed_medication_3 }
+      - send: medication_picker.toggle
+        args: { medicationId: $seed_medication_1 }
+      - expect:
+          - path: state.medication_picker.selectedIds
+            equals: [$seed_medication_3, $seed_medication_1]
+          - path: state.consultation_form.linkedMedicationIds
+            equals: [$seed_medication_3, $seed_medication_1]
+      - send: medication_picker.done
+      - expect:
+          - path: state.consultation_form.pickerPresented
+            equals: false
+          - path: state.consultation_form.linkedMedicationIds
+            equals: [$seed_medication_3, $seed_medication_1]
+      - send: consultation_form.dismissPicker
+      - expect:
+          - path: state.consultation_form.linkedMedicationIds
+            equals: [$seed_medication_3, $seed_medication_1]
+      - note: |
+          Q9. Order is TAP ORDER, not medication order. Dismissing — by Done or by swipe —
+          never reverts, because there is no commit step. Only Cancel on the FORM discards.
+          Reflex routes the mutation through the parent's action so there is one owner,
+          but the observable behavior is unchanged.
+
+  - id: toggling_a_selected_medication_removes_it
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openEdit
+        args: { consultationId: $seed_consultation_1 }
+      - send: consultation_form.presentPicker
+      - send: medication_picker.toggle
+        args: { medicationId: $seed_medication_2 }
+      - send: medication_picker.toggle
+        args: { medicationId: $seed_medication_2 }
+      - expect:
+          - path: state.consultation_form.linkedMedicationIds
+            equals: []
+
+  - id: unlink_from_the_form_is_local_until_save
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openEdit
+        args: { consultationId: $seed_consultation_1 }
+      - send: consultation_form.presentPicker
+      - send: medication_picker.toggle
+        args: { medicationId: $seed_medication_1 }
+      - send: medication_picker.done
+      - send: consultation_form.unlinkMedication
+        args: { medicationId: $seed_medication_1 }
+      - expect:
+          - path: state.consultation_form.linkedMedicationIds
+            equals: []
+          - path: data.consultations[0].linkedMedications
+            equals: []
+      - send: consultation_form.cancel
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 0
+
+  - id: linked_medications_persist_on_save
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: consultations.openEdit
+        args: { consultationId: $seed_consultation_1 }
+      - send: consultation_form.presentPicker
+      - send: medication_picker.toggle
+        args: { medicationId: $seed_medication_2 }
+      - send: medication_picker.done
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations[0].linkedMedications
+            equals: [$seed_medication_2]
+          - path: store.saved.consultations[0].linkedMedications
+            equals: [$seed_medication_2]
+
+  - id: a_dangling_link_renders_blank_and_survives_a_save
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications:
+          - id: "00000000-0000-4000-8000-0000000000D1"
+            name: "Still Here"
+            dosage: "5mg"
+            instructions: "With Food"
+            schedule: "Morning"
+            stock: 10
+            active: true
+        consultations:
+          - id: "00000000-0000-4000-8000-0000000000D2"
+            doctorName: "Dr. Alice Rao"
+            specialty: "Cardiologist"
+            date: "2026-10-08T12:00:00Z"
+            notes: ""
+            linkedMedications:
+              - "00000000-0000-4000-8000-0000000000D1"
+              - "00000000-0000-4000-8000-0000000000DE"
+    steps:
+      - send: consultations.openEdit
+        args: { consultationId: "00000000-0000-4000-8000-0000000000D2" }
+      - expect:
+          - path: state.consultation_form.linkedMedicationIds
+            equals:
+              - "00000000-0000-4000-8000-0000000000D1"
+              - "00000000-0000-4000-8000-0000000000DE"
+          - path: state.consultation_form.linkedRows
+            equals: ["00000000-0000-4000-8000-0000000000D1"]
+      - send: consultation_form.presentPicker
+      - expect:
+          - path: state.medication_picker.availableIds
+            equals: ["00000000-0000-4000-8000-0000000000D1"]
+      - send: medication_picker.done
+      - send: consultation_form.save
+      - flush: all
+      - expect:
+          - path: data.consultations[0].linkedMedications
+            equals:
+              - "00000000-0000-4000-8000-0000000000D1"
+              - "00000000-0000-4000-8000-0000000000DE"
+          - path: store.saved.consultations[0].linkedMedications
+            equals:
+              - "00000000-0000-4000-8000-0000000000D1"
+              - "00000000-0000-4000-8000-0000000000DE"
+      - note: |
+          Q10. The ...DE id has no medication — the state a real deleteMedication leaves
+          behind, since that reducer removes only from data.medications and never purges
+          consultation links (MedicalViewModel.swift:193-198). The row renders blank, the
+          picker no longer lists it, and saving writes the stale id straight back. Asserted
+          so neither platform invents a cascade cleanup the other lacks.

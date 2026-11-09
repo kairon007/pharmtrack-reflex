@@ -1,0 +1,64 @@
+schema: reflex/behavior/1
+id: migration_install
+title: A real v0.0.19 install survives the upgrade with no field loss
+nodes: [app_root, settings]
+evidence:
+  - reflex/specs/contracts/persistence.yaml#compatibility_guarantee
+  - reflex/specs/contracts/persistence.yaml#additive_changes_in_1_0
+  - reflex/specs/contracts/persistence.yaml#leniency
+decisions: []
+unpinned:
+  - "raw bytes and key order — semantic equality only (persistence.yaml#compatibility_guarantee)"
+  - "rendered date strings (D15)"
+
+# This journey is NOT part of the frozen suite. It is materialized into a throwaway copy of
+# the specs tree by reflex/tools/verify-migration.sh, and it runs only against a file captured
+# from a LIVE v0.0.19 install — the real encoder's output, not a derivation from the Codable
+# structs.
+#
+# Each case loads the captured file through the platform's REAL decoder, saves it back through
+# the platform's REAL encoder, and asserts the re-decoded value equals the captured value
+# field by field. Equality of PARSED VALUES is the contract (persistence.yaml#compatibility_
+# guarantee): key order and raw bytes are explicitly not pinned.
+
+cases:
+
+  - id: golden_ios_round_trips
+    given:
+      fixture: golden_ios
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:golden_ios
+          - path: store.writeCount
+            equals: 1
+          - path: store.filePresent
+            equals: true
+      - note: |
+          The iOS capture is read, written back and read again. Every field the shipping app
+          wrote — medications, appointments, consultations, vitals, logs and the eight
+          notificationSettings fields — comes back equal.
+
+  - id: golden_android_round_trips
+    given:
+      fixture: golden_android
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:golden_android
+          - path: store.writeCount
+            equals: 1
+          - path: store.filePresent
+            equals: true
+      - note: |
+          The Android capture must survive the same round-trip. If Skip's transpiled encoder
+          wrote a shape Foundation's decoder rejects — a different date format, a different
+          UUID case, a required field left out — this case is where it shows up.

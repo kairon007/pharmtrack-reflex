@@ -1,0 +1,28 @@
+{
+  "appointments": [
+    {
+      "id": "00000000-0000-4000-8000-000000000081",
+      "doctorName": "Null On Optional",
+      "specialty": "Cardiology",
+      "type": "General Checkup",
+      "date": "2026-11-07T14:30:00Z",
+      "location": "City Clinic",
+      "notes": null,
+      "notify": true
+    }
+  ],
+  "medications": [],
+  "consultations": [],
+  "vitals": [],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

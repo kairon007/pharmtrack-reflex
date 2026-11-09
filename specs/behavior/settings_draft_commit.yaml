@@ -1,0 +1,289 @@
+schema: reflex/behavior/1
+id: settings_draft_commit
+title: Draft isolation, Cancel discards, Save commits and reschedules
+nodes: [settings, app_root, dashboard, medication_tracker]
+evidence:
+  - Sources/SharedUI/Medical/SettingsView.swift:12-17
+  - Sources/SharedUI/Medical/SettingsView.swift:22-71
+  - Sources/SharedUI/Medical/SettingsView.swift:72-91
+  - Sources/AppModel/MedicalViewModel.swift:269-272
+  - Sources/AppModel/MedicalModels.swift:45-52
+decisions: [D1, D8, D9]
+unpinned:
+  - "section visibility animations"
+
+cases:
+
+  - id: draft_starts_from_the_committed_settings
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - expect:
+          - path: state.settings.draft.allNotificationsEnabled
+            equals: true
+          - path: state.settings.draft.lowStockThreshold
+            equals: 5
+          - path: state.settings.draft.medicationReminderTime
+            equals: "At time of event"
+          - path: state.settings.draft.appointmentReminderTime
+            equals: "1 day before"
+          - path: state.settings.sectionsVisible
+            equals: true
+
+  - id: toggles_mutate_only_the_draft
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.setMedicationsEnabled
+        args: { value: false }
+      - send: settings.setLowStockThreshold
+        args: { value: 10 }
+      - expect:
+          - path: state.settings.draft.medicationsEnabled
+            equals: false
+          - path: state.settings.draft.lowStockThreshold
+            equals: 10
+          - path: data.notificationSettings.medicationsEnabled
+            equals: true
+          - path: data.notificationSettings.lowStockThreshold
+            equals: 5
+          - path: state.medication_tracker.isLowStock[$seed_medication_3]
+            equals: true
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 0
+          - path: notifications.replaceCount
+            equals: 0
+      - note: |
+          The committed data, the badge predicate and the schedule are all untouched while
+          the draft is dirty. The badge still uses threshold 5, so Ibuprofen (stock 3) badges
+          but Vitamin D3 (stock 24) does not — even though the draft says 10.
+
+  - id: cancel_discards_the_draft
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.setAllEnabled
+        args: { value: false }
+      - send: settings.setLowStockThreshold
+        args: { value: 3 }
+      - send: settings.cancel
+      - flush: all
+      - expect:
+          - path: state.app_root.settingsPresented
+            equals: false
+          - path: data.notificationSettings.allNotificationsEnabled
+            equals: true
+          - path: data.notificationSettings.lowStockThreshold
+            equals: 5
+          - path: store.writeCount
+            equals: 0
+          - path: notifications.replaceCount
+            equals: 0
+      - send: app_root.presentSettings
+      - expect:
+          - path: state.settings.draft.allNotificationsEnabled
+            equals: true
+          - path: state.settings.draft.lowStockThreshold
+            equals: 5
+      - note: Reopening reseeds the draft from committed data. SettingsView.swift:17, :72-74.
+
+  - id: save_commits_persists_and_reschedules
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.setMedicationsEnabled
+        args: { value: false }
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: state.app_root.settingsPresented
+            equals: false
+          - path: data.notificationSettings.medicationsEnabled
+            equals: false
+          - path: store.writeCount
+            equals: 1
+          - path: store.saved.notificationSettings.medicationsEnabled
+            equals: false
+          - path: notifications.replaceCount
+            equals: 1
+          - path: notifications
+            count: 2
+      - note: |
+          The matrix normally plans three (one medication, one appointment, one consultation).
+          Disabling medication reminders drops it to two. The write happens BEFORE the
+          reschedule, and the reschedule uses the newly committed data.
+
+  - id: saving_unchanged_settings_still_writes
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 1
+          - path: notifications.replaceCount
+            equals: 1
+      - note: Q14. No dirty check exists. SettingsView.swift:87-91 always calls
+              updateNotificationSettings.
+
+  - id: disabling_all_notifications_empties_the_schedule
+    divergence: D1
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: notifications
+            count: 3
+      - send: app_root.presentSettings
+      - send: settings.setAllEnabled
+        args: { value: false }
+      - expect:
+          - path: state.settings.sectionsVisible
+            equals: false
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: notifications
+            unordered_equals: []
+          - path: notifications.replaceCount
+            equals: 1
+          - path: data.notificationSettings.allNotificationsEnabled
+            equals: false
+      - note: |
+          replaceAll is still CALLED with an empty set — the adapter must cancel everything,
+          not skip the call. An implementation that early-returns before cancelling would
+          leave the three pending notifications live. NotificationManager.swift:96-98.
+
+  - id: hidden_section_values_are_not_reset
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.setLowStockThreshold
+        args: { value: 10 }
+      - send: settings.setMedicationsEnabled
+        args: { value: false }
+      - expect:
+          - path: state.settings.medicationTimeVisible
+            equals: false
+          - path: state.settings.draft.medicationsEnabled
+            equals: false
+          - path: state.settings.draft.medicationReminderTime
+            equals: "At time of event"
+      - send: settings.setAllEnabled
+        args: { value: false }
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: data.notificationSettings.lowStockThreshold
+            equals: 10
+          - path: data.notificationSettings.medicationsEnabled
+            equals: false
+          - path: data.notificationSettings.medicationReminderTime
+            equals: "At time of event"
+      - note: Hiding a section does not clear its values. SettingsView.swift:28. They persist
+              and reappear when the section is shown again.
+
+  - id: threshold_options_are_three_five_ten
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - expect:
+          - path: state.settings.thresholdOptions
+            equals: [3, 5, 10]
+          - path: state.settings.reminderOptions
+            equals: ["At time of event", "5 minutes before", "1 hour before", "1 day before"]
+      - note: Persisted raw values, in declaration order. MedicalModels.swift:45-50,
+              SettingsView.swift:44-49.
+
+  - id: the_badge_and_the_alert_move_together_on_commit
+    divergence: D8
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[0].id]
+            equals: false
+          - path: notifications
+            count: 3
+      - send: app_root.presentSettings
+      - send: settings.setLowStockThreshold
+        args: { value: 10 }
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[0].id]
+            equals: true
+          - path: notifications
+            count: 4
+      - note: Stock 6 crosses both surfaces at once because one selector feeds both.
+
+  - id: consultation_alerts_follow_the_appointment_reminder_setting
+    divergence: D9
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: notifications
+            contains:
+              identifier: "consult-00000000-0000-4000-8000-000000000059"
+              channel: consultation_reminders
+              title: "Upcoming Consultation"
+              body: "You have a consultation with Future Consult."
+              triggerAt: "2026-11-19T12:00:00Z"
+      - send: app_root.presentSettings
+      - send: settings.setAppointmentReminderTime
+        args: { value: "1 hour before" }
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: notifications
+            contains:
+              identifier: "consult-00000000-0000-4000-8000-000000000059"
+              channel: consultation_reminders
+              title: "Upcoming Consultation"
+              body: "You have a consultation with Future Consult."
+              triggerAt: "2026-11-20T11:00:00Z"
+          - path: notifications
+            contains:
+              identifier: "consult-00000000-0000-4000-8000-00000000005A"
+              channel: consultation_reminders
+              title: "Upcoming Consultation"
+              body: "You have a consultation with Consult Inside Offset Window."
+              triggerAt: "2026-11-08T05:00:00Z"
+      - note: |
+          D9. At the default "1 day before" the consultation trigger is identical to v0.0.19's
+          fixed -24h, so existing users see no change. Changing the setting now moves
+          consultations too, and the consultation that was previously killed by the -24h
+          offset becomes schedulable at -1h.
+
+  - id: settings_are_reached_from_the_dashboard_bell
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: dashboard.presentSheet
+        args: { sheet: settings }
+      - expect:
+          - path: state.dashboard.presentedSheet
+            equals: settings
+      - note: Settings is a modal, not a sixth tab. DashboardView.swift:127-132.

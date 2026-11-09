@@ -1,0 +1,13 @@
+{
+  "medications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000061",
+      "name": "Only Collection Present",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 12,
+      "active": true
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+--- a/reflex/specs/behavior/dashboard_cross_tab_jump.yaml
++++ b/reflex/specs/behavior/dashboard_cross_tab_jump.yaml
+@@ -193,8 +193,8 @@
+       - expect:
+           - path: state.app_root.selectedTab
+             equals: 0
+-          - path: state.appointments.visibleIds
+-            equals: []
++          - path: state.app_root.selectedAppointmentDate
++            equals: $now
+       - note: Both jump sites are fed from upcomingAppointments, which filters date >= now,
+               so a past appointment is unreachable from the UI. A direct action carrying a
+               past id is a no-op rather than a navigation to an invisible row.
+--- a/reflex/specs/behavior/medication_search_and_segments.yaml
++++ b/reflex/specs/behavior/medication_search_and_segments.yaml
+@@ -134,13 +134,13 @@
+           - path: state.medication_tracker.filteredMedications
+             equals: []
+ 
+-  - id: whitespace_query_matches_nothing
++  - id: untrimmed_query_matches_nothing
+     given:
+       fixture: seeded_demo
+       key_value: { hasCompletedOnboarding: true }
+     steps:
+       - send: medication_tracker.setSearch
+-        args: { text: " " }
++        args: { text: " Vitamin D3 " }
+       - expect:
+           - path: state.medication_tracker.filteredMedications
+             equals: []
+@@ -148,8 +148,8 @@
+             equals: 0
+           - path: state.medication_tracker.takenFraction
+             equals: 0.0
+-      - note: The query is not trimmed, and no seeded name contains a space. The zero-total
+-              branch must not divide by zero.
++      - note: The query is not trimmed, so the surrounding spaces prevent a match on
++              "Vitamin D3". The zero-total branch must not divide by zero.
+ 
+   - id: search_applies_to_today_and_inventory_but_not_history
+     given:
+--- a/reflex/specs/behavior/vital_crud.yaml
++++ b/reflex/specs/behavior/vital_crud.yaml
+@@ -85,6 +85,8 @@
+         args: { text: "80.9" }
+       - send: add_vital.save
+       - flush: all
++      - send: vitals.selectMetric
++        args: { metric: bloodPressure }
+       - expect:
+           - path: data.vitals[0].value
+             equals: 120.7
+@@ -111,6 +113,8 @@
+             equals: true
+       - send: add_vital.save
+       - flush: all
++      - send: vitals.selectMetric
++        args: { metric: bloodPressure }
+       - expect:
+           - path: data.vitals[0].value2
+             is_null: true
+@@ -132,6 +136,8 @@
+         args: { text: "118.6" }
+       - send: add_vital.save
+       - flush: all
++      - send: vitals.selectMetric
++        args: { metric: bloodSugar }
+       - expect:
+           - path: data.vitals[0].value
+             equals: 118.6

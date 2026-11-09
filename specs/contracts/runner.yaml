@@ -1,0 +1,145 @@
+# Runner contract — how the frozen behavior suite is executed and compared.
+#
+# Two independent binaries, one per platform, built in Phase 2 and Phase 3. They share
+# nothing but reflex/specs/. Neither may link the other's code.
+
+schema: reflex/runner/1
+
+cli:
+  name: reflex-runner
+  invocation: "reflex-runner --platform ios|android --spec <glob> [--case <id>] [--out <file>]"
+  flags:
+    --platform: required. Selects which implementation this binary is. A binary may reject a
+                mismatched value; CI always passes the matching one.
+    --spec:     required. Glob relative to reflex/specs/behavior/, e.g. "vital_*.yaml".
+    --case:     optional. Run only this case id. Exit 2 if it does not exist.
+    --out:      optional. Write NDJSON here instead of stdout.
+  exit_codes:
+    0: every assertion held
+    1: at least one assertion failed
+    2: usage error, unknown node/action/fixture, or malformed journey
+    3: ID sequence exhausted, or a service fixture was used in a way it does not support
+  determinism: |
+    Two runs of the same binary with the same spec MUST produce byte-identical output.
+    No timestamps, no run ids, no absolute paths, no hash-map iteration order in the stream.
+
+output:
+  format: NDJSON — one JSON object per line, flushed in step order.
+  streams: stdout is the machine stream. Diagnostics go to stderr and are never compared.
+  record_types:
+
+    case_start:
+      fields:
+        type: "case_start"
+        journey: "<journey id>"
+        case: "<case id>"
+        fixture: "<fixture name or null>"
+        now: "<ISO8601 UTC>"
+        decisions: ["<id>", ...]
+
+    step:
+      fields:
+        type: "step"
+        index: "<0-based Int>"
+        verb: "send | deliver | flush | advance | inject | note"
+        target: "<node.action, node.message, or the flush/inject target>"
+        state: { "<node>": { "<field>": "<value>" } }
+        data: "<the full committed MedicalData>"
+        services:
+          kv: { "<key>": "<value>" }
+          store: { filePresent: Bool, writeCount: Int, saved: "<MedicalData or null>" }
+          notifications: { replaceCount: Int, scheduled: "[ScheduledNotification]" }
+          clock: { now: "<ISO8601 UTC>" }
+          ids: { consumed: Int }
+      rule: Emitted after EVERY step, including note and flush, even when nothing changed.
+            A step that changes nothing must still emit a record — the absence of change is
+            itself a parity assertion.
+
+    assertion:
+      fields:
+        type: "assertion"
+        step: "<step index this assertion was attached to>"
+        path: "<assertion path>"
+        operator: "<operator name>"
+        expected: "<value>"
+        actual: "<value>"
+        passed: Bool
+
+    case_end:
+      fields:
+        type: "case_end"
+        journey: "<journey id>"
+        case: "<case id>"
+        passed: Bool
+        failedAssertions: Int
+
+canonicalization:
+  # Applied by BOTH runners before serialization. Without this the diff is noise.
+  rules:
+    - Object keys sorted lexicographically at every depth.
+    - Instants as ISO8601 UTC, seconds precision, trailing "Z", no fractional seconds.
+    - UUIDs uppercase.
+    - Numbers: integers without a decimal point; doubles shortest round-trip form.
+    - null-valued optional entity fields are OMITTED, matching persistence.yaml#nil_optionals.
+    - Collections keep their order EXCEPT notifications.scheduled, which is sorted by
+      identifier before emission (its true order is not contract — see unordered_equals).
+    - No whitespace between JSON tokens.
+    - Assertion EXPECTED values — including everything resolved from a `$fixture:` alias — are
+      canonicalized by these same rules before comparison. A fixture carrying an explicit
+      null notes value therefore compares equal to a saved value that omits the key, because
+      both sides drop null optionals. This is what makes whole-value round-trip asserts work.
+    - State fields listed as `derived` in nodes.yaml are emitted whether the implementation
+      stores them or computes them on read.
+
+comparison:
+  method: |
+    CI runs both binaries over the same glob and diffs the canonicalized streams line by line.
+    Any difference fails the gate, including a difference in the NUMBER of records.
+  exclude: |
+    Paths listed in a journey's `unpinned` block are removed from `state`, `data` and
+    `services` before comparison, on both sides, by the same rule.
+  failure_report: |
+    On divergence, print the journey id, case id, step index and the first differing path.
+    Do not print whole state objects — they are large and the path is what a human needs.
+
+implementation_constraints:
+  ios:
+    language: Swift
+    core_imports: Foundation only. No SwiftUI, no UIKit, no Combine in Core.
+    host: A CLI target that wires the fixture adapters and reads the YAML specs.
+    yaml: Decoding journey YAML is a TOOL concern, not a Core concern. Core receives plain
+          values. The tool may use a YAML dependency; Core may not.
+  android:
+    language: Kotlin, JVM target
+    core_imports: kotlinx.serialization, kotlinx.coroutines, java.time, java.util.UUID.
+                  Zero android.* imports.
+    host: A JVM main() wiring the same fixture adapters.
+  forbidden:
+    - Sharing source, generated code, or a schema-derived model between the two cores.
+    - Reading the other platform's output to decide what to emit.
+    - Any wall-clock read inside a reducer or selector.
+    - Any UUID construction inside a reducer.
+
+fixture_adapters:
+  # Both platforms implement these against contracts/services.yaml. Behavior must match.
+  Clock: Returns the pinned instant. `advance` moves it. Never reads the system clock.
+  IDGenerator: Hands out determinism.yaml#ids.sequence in order. Exhaustion exits 3, never wraps.
+  Scheduler: Queues after() entries. flush() fires all pending in insertion order, to fixed
+             point, with a 1000-effect cap that exits 3 if hit (guards against effect loops).
+  KeyValueStore: In-memory map seeded from `given.key_value`.
+  MedicalStore: |
+    In-memory slot seeded from `given.fixture`. `store: absent` makes load return
+    nil; `store: unreadable` makes it throw. save SERIALIZES the value through the
+    platform's REAL encoder into the slot, then records the RE-DECODED value as
+    `saved` and increments writeCount; load deserializes through the real decoder.
+    The slot therefore exercises the same codec path as production, minus the
+    filesystem, so `store.saved` is a genuine decode(encode(x)) round-trip and not
+    merely the in-memory object handed to save. clear empties the slot and is
+    idempotent.
+  NotificationScheduler: Records the last replaceAll argument and increments replaceCount.
+                         Never delivers anything.
+
+scope:
+  in: Reducers, selectors, the pure NotificationPlanner, service wiring, persistence semantics.
+  out: SwiftUI/Compose rendering, layout, colors, animation curves, real notification delivery,
+       real filesystem paths. Those are Phase 4 and are verified by hand on device.

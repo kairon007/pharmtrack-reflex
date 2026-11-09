@@ -1,0 +1,239 @@
+schema: reflex/behavior/1
+id: onboarding_journey
+title: The five-step tour, Get Started, and the clear-then-flag ordering
+nodes: [app_root, onboarding, dashboard, consultations, medication_tracker, appointments, vitals]
+evidence:
+  - Sources/SharedUI/Medical/MainTabView.swift:74-118
+  - Sources/SharedUI/Medical/MainTabView.swift:84-89
+  - Sources/AppModel/MedicalViewModel.swift:175-182
+  - Sources/SharedUI/Medical/DashboardView.swift:91-105
+decisions: [D1, D2, D3, D7]
+unpinned:
+  - "animation durations and scroll offsets — the auto-scroll demo is UI, not state"
+  - "rendered date strings (D15)"
+defaults: { load: false }
+
+cases:
+
+  - id: overlay_appears_after_load_only_when_onboarding_incomplete
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - expect:
+          - path: state.onboarding.visible
+            equals: false
+      - note: The reveal is a Scheduler effect, not an inline assignment. Before flush the
+              overlay is still hidden even though loading has completed.
+      - flush: all
+      - expect:
+          - path: state.onboarding.visible
+            equals: true
+          - path: state.onboarding.step
+            equals: 0
+          - path: state.app_root.selectedTab
+            equals: 0
+
+  - id: five_steps_two_text_variants
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.onboarding.promptText
+            equals: "Ready for the next one?"
+          - path: state.onboarding.buttonText
+            equals: "Next"
+          - path: state.onboarding.subtitle
+            equals: "Swipe or tap below to explore"
+      - send: onboarding.next
+      - expect:
+          - path: state.onboarding.step
+            equals: 1
+          - path: state.app_root.selectedTab
+            equals: 1
+      - send: onboarding.next
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 2
+      - send: onboarding.next
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 3
+      - send: onboarding.next
+      - flush: all
+      - expect:
+          - path: state.onboarding.step
+            equals: 4
+          - path: state.app_root.selectedTab
+            equals: 4
+          - path: state.onboarding.promptText
+            equals: "Ready to use the app?"
+          - path: state.onboarding.buttonText
+            equals: "Get Started"
+          - path: state.onboarding.subtitle
+            equals: "Swipe or tap below to explore"
+      - note: Q15. There is no per-step copy in v0.0.19 — only the step-4 variant differs.
+              Do not invent five headlines.
+
+  - id: next_does_not_mutate_data
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - send: onboarding.next
+      - send: onboarding.next
+      - flush: all
+      - expect:
+          - path: data.medications.count
+            equals: 3
+          - path: store.writeCount
+            equals: 1
+          - path: kv.hasCompletedOnboarding
+            equals: false
+      - note: Stepping the tour only changes the selected tab. The single write is the seed.
+
+  - id: tab_change_hides_then_requeues_the_overlay
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - send: app_root.selectTab
+        args: { index: 2 }
+      - expect:
+          - path: state.onboarding.visible
+            equals: false
+      - flush: scheduler
+      - expect:
+          - path: state.onboarding.visible
+            equals: true
+          - path: state.app_root.selectedTab
+            equals: 2
+      - note: MainTabView.swift:107-118. The legacy code stacked uncancelled Tasks on rapid
+              tab taps; Reflex cancels the pending reveal before queueing a new one. Only the
+              eventual state is contract, never the flicker.
+
+  - id: get_started_clears_then_sets_the_flag
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - send: onboarding.next
+      - send: onboarding.next
+      - send: onboarding.next
+      - send: onboarding.next
+      - flush: all
+      - send: onboarding.getStarted
+      - expect:
+          - path: state.onboarding.clearing
+            equals: true
+          - path: kv.hasCompletedOnboarding
+            equals: false
+          - path: data.medications.count
+            equals: 3
+      - note: |
+          THE ORDERING ASSERTION. Before the store's clear completes, the flag is still false
+          and the demo data is still present. v0.0.19 papered over this with a 0.1s sleep
+          (MainTabView.swift:87). Reflex transitions on the completion message instead.
+      - flush: all
+      - expect:
+          - path: kv.hasCompletedOnboarding
+            equals: true
+          - path: state.app_root.hasCompletedOnboarding
+            equals: true
+          - path: state.onboarding.clearing
+            equals: false
+          - path: state.onboarding.visible
+            equals: false
+          - path: data.medications.count
+            equals: 0
+          - path: data.appointments.count
+            equals: 0
+          - path: data.consultations.count
+            equals: 0
+          - path: data.vitals.count
+            equals: 0
+          - path: data.logs.count
+            equals: 0
+          - path: store.filePresent
+            equals: false
+          - path: state.app_root.selectedTab
+            equals: 4
+      - note: Selection stays on the last tab. Legacy did not reset it to 0 and neither do we.
+
+  - id: failed_clear_does_not_set_the_flag
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - inject: { service: store, fail_next: clearFailed }
+      - send: onboarding.getStarted
+      - flush: all
+      - expect:
+          - path: kv.hasCompletedOnboarding
+            equals: false
+          - path: state.onboarding.clearing
+            equals: false
+          - path: state.onboarding.visible
+            equals: true
+      - note: |
+          v0.0.19 wrote the flag unconditionally after the sleep, even when clearData() threw
+          (MedicalViewModel.swift:175-182 only printed). A user whose clear failed would land
+          in an empty-looking app with demo data still on disk and no way back to the tour.
+          Reflex keeps the tour open so the action can be retried.
+
+  - id: completing_onboarding_cancels_the_demo_notifications
+    divergence: D1
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: notifications.replaceCount
+            equals: 1
+          - path: notifications
+            not_equals: []
+      - note: The seed persists, which reschedules — so demo reminders are live before the
+              user has even finished the tour.
+      - send: onboarding.getStarted
+      - flush: all
+      - expect:
+          - path: notifications
+            unordered_equals: []
+          - path: notifications.replaceCount
+            equals: 2
+      - note: |
+          Q13 flagged this as a real leak: clearData() never called save() or the scheduler,
+          so v0.0.19 left the demo reminders pending after the data was gone. Applying D1's
+          clear-all-then-reschedule to the empty post-clear state cancels them. The planner
+          is pure, so an empty MedicalData plans an empty set.
+
+  - id: returning_user_never_sees_the_tour
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.onboarding.visible
+            equals: false
+          - path: state.onboarding.step
+            equals: 0
+          - path: data.medications.count
+            equals: 0
+          - path: store.writeCount
+            equals: 0

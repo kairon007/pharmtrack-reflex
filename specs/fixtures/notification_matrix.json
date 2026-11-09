@@ -1,0 +1,119 @@
+{
+  "appointments": [
+    {
+      "id": "00000000-0000-4000-8000-000000000051",
+      "doctorName": "Soon Offset Killed",
+      "specialty": "Cardiology",
+      "type": "Follow-up",
+      "date": "2026-11-07T12:30:00Z",
+      "location": "City Clinic",
+      "notify": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000052",
+      "doctorName": "Future Notifying",
+      "specialty": "Dermatology",
+      "type": "General Checkup",
+      "date": "2026-11-10T12:00:00Z",
+      "location": "West Wing",
+      "notify": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000053",
+      "doctorName": "Future Muted",
+      "specialty": "Dermatology",
+      "type": "General Checkup",
+      "date": "2026-11-11T12:00:00Z",
+      "location": "West Wing",
+      "notify": false
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000054",
+      "doctorName": "Past Appointment",
+      "specialty": "Cardiology",
+      "type": "Follow-up",
+      "date": "2026-11-01T12:00:00Z",
+      "location": "City Clinic",
+      "notify": true
+    }
+  ],
+  "medications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000055",
+      "name": "Future Dose",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Evening",
+      "stock": 20,
+      "active": true,
+      "nextDose": "2026-11-07T18:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000056",
+      "name": "Past Dose",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 20,
+      "active": true,
+      "nextDose": "2026-11-07T09:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000057",
+      "name": "No Dose Scheduled",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 20,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000058",
+      "name": "Inactive Future Dose",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 20,
+      "active": false,
+      "nextDose": "2026-11-08T09:00:00Z"
+    }
+  ],
+  "consultations": [
+    {
+      "id": "00000000-0000-4000-8000-000000000059",
+      "doctorName": "Future Consult",
+      "specialty": "Cardiologist",
+      "date": "2026-11-20T12:00:00Z",
+      "notes": "Trigger is date + offset(appointmentReminderTime). Default '1 day before' = -24h, matching legacy (D9).",
+      "linkedMedications": []
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000005A",
+      "doctorName": "Consult Inside Offset Window",
+      "specialty": "Cardiologist",
+      "date": "2026-11-08T06:00:00Z",
+      "notes": "Future, but at the default -24h offset the trigger is past — no notification. A shorter appointmentReminderTime rescues it (D9).",
+      "linkedMedications": []
+    },
+    {
+      "id": "00000000-0000-4000-8000-00000000005B",
+      "doctorName": "Past Consult",
+      "specialty": "Cardiologist",
+      "date": "2026-10-08T12:00:00Z",
+      "notes": "Past — excluded.",
+      "linkedMedications": []
+    }
+  ],
+  "vitals": [],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

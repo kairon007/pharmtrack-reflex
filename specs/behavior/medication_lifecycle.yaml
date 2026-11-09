@@ -1,0 +1,524 @@
+schema: reflex/behavior/1
+id: medication_lifecycle
+title: Add, mark taken, stock arithmetic, low stock and the taken-identity rule
+nodes: [medication_tracker, add_medication, app_root, dashboard, settings]
+evidence:
+  - Sources/AppModel/MedicalViewModel.swift:243-266
+  - Sources/AppModel/MedicalViewModel.swift:163-166
+  - Sources/AppModel/MedicalViewModel.swift:221-226
+  - Sources/SharedUI/Medical/MedicationTrackerView.swift:205-214
+  - Sources/SharedUI/Medical/MedicationTrackerView.swift:294-312
+  - Sources/SharedUI/Medical/AddMedicationView.swift:188-202
+decisions: [D6, D8, D16]
+unpinned:
+  - "rendered date strings (D15)"
+
+cases:
+
+  - id: add_medication_defaults
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - expect:
+          - path: state.add_medication.canSave
+            equals: false
+          - path: state.add_medication.schedule
+            equals: Morning
+      - send: add_medication.setName
+        args: { text: "Metformin" }
+      - send: add_medication.setDosage
+        args: { text: "500mg" }
+      - expect:
+          - path: state.add_medication.canSave
+            equals: true
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications.count
+            equals: 1
+          - path: data.medications[0].id
+            equals: $1
+          - path: data.medications[0].name
+            equals: "Metformin"
+          - path: data.medications[0].instructions
+            equals: ""
+          - path: data.medications[0].schedule
+            equals: Morning
+          - path: data.medications[0].stock
+            equals: 0
+          - path: data.medications[0].active
+            equals: true
+          - path: data.medications[0].nextDose
+            equals: $now
+          - path: ids.consumed
+            equals: 1
+          - path: store.writeCount
+            equals: 1
+      - note: |
+          nextDose is set to now on create (AddMedicationView.swift:198), which is already
+          past by the time anything renders, so the planner's trigger > now guard skips the
+          reminder. That is real behavior, not an off-by-one to fix.
+
+  - id: new_medications_append_not_prepend
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "First" }
+      - send: add_medication.setDosage
+        args: { text: "1mg" }
+      - send: add_medication.save
+      - flush: all
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Second" }
+      - send: add_medication.setDosage
+        args: { text: "2mg" }
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications[0].name
+            equals: "First"
+          - path: data.medications[1].name
+            equals: "Second"
+      - note: MedicalViewModel.swift:163-166 appends. Vitals and consultations insert at 0;
+              medications and appointments do not. The asymmetry is preserved.
+
+  - id: stock_text_parsing
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Padded" }
+      - send: add_medication.setDosage
+        args: { text: "1mg" }
+      - send: add_medication.setStockText
+        args: { text: " 3 " }
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications[0].stock
+            equals: 0
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Decimal" }
+      - send: add_medication.setDosage
+        args: { text: "1mg" }
+      - send: add_medication.setStockText
+        args: { text: "3.5" }
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications[1].stock
+            equals: 0
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Negative" }
+      - send: add_medication.setDosage
+        args: { text: "1mg" }
+      - send: add_medication.setStockText
+        args: { text: "-3" }
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications[2].stock
+            equals: -3
+      - note: |
+          Q6. Int(text) ?? 0 with no trim and no clamp. Kotlin's toIntOrNull() also rejects
+          " 3 " and "3.5", so the two agree — but a implementation that trims first would
+          silently diverge. The negative is accepted on both and must stay accepted.
+
+  - id: whitespace_name_passes_the_gate
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "   " }
+      - send: add_medication.setDosage
+        args: { text: " " }
+      - expect:
+          - path: state.add_medication.canSave
+            equals: true
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications.count
+            equals: 1
+          - path: data.medications[0].name
+            equals: "   "
+      - note: D13.preserved_asymmetry. Only the consultation form trims. This one does not.
+
+  - id: mark_taken_mutates_stock_dose_and_writes_a_log
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.markTaken
+        args: { medicationId: $seed_medication_2 }
+      - expect:
+          - path: data.medications[id=$seed_medication_2].stock
+            equals: 23
+          - path: data.medications[id=$seed_medication_2].nextDose
+            equals: "2026-11-08T12:00:00Z"
+          - path: data.logs.count
+            equals: 2
+          - path: data.logs[0].id
+            equals: $1
+          - path: data.logs[0].type
+            equals: "Medication Taken"
+          - path: data.logs[0].description
+            equals: "Atorvastatin Dose Taken"
+          - path: data.logs[0].medicationId
+            equals: $seed_medication_2
+          - path: data.logs[0].source
+            equals: "Manual Log"
+          - path: data.logs[0].date
+            equals: $now
+          - path: ids.consumed
+            equals: 1
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 1
+          - path: notifications.replaceCount
+            equals: 1
+      - note: |
+          nextDose is now + 86400s regardless of the schedule string (Q5). The log is inserted
+          at index 0. Exactly one id is consumed, for the log — the medication keeps its id.
+          medicationId on the log is the additive 1.0 field; v0.0.19 wrote no identifier.
+
+  - id: marking_the_same_medication_twice_in_a_day_is_a_noop
+    divergence: D6
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Once Daily" }
+      - send: add_medication.setDosage
+        args: { text: "10mg" }
+      - send: add_medication.setStockText
+        args: { text: "10" }
+      - send: add_medication.save
+      - flush: all
+      - send: medication_tracker.markTaken
+        args: { medicationId: $1 }
+      - flush: all
+      - expect:
+          - path: data.medications[0].stock
+            equals: 9
+          - path: data.logs.count
+            equals: 1
+      - send: medication_tracker.markTaken
+        args: { medicationId: $1 }
+      - flush: all
+      - expect:
+          - path: data.medications[0].stock
+            equals: 9
+          - path: data.logs.count
+            equals: 1
+          - path: ids.consumed
+            equals: 2
+          - path: store.writeCount
+            equals: 2
+      - note: |
+          The guard is in the REDUCER, so it covers the tracker row AND the dashboard button.
+          v0.0.19 guarded only the tracker row in the view (MedicationTrackerView.swift:210);
+          DashboardView.swift:204 had no guard, so repeated hero taps drained stock.
+          Two writes total: one for the add, one for the first mark. The no-op writes nothing.
+
+  - id: the_dashboard_path_is_guarded_too
+    divergence: D6
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Solo Med" }
+      - send: add_medication.setDosage
+        args: { text: "10mg" }
+      - send: add_medication.setStockText
+        args: { text: "5" }
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: state.dashboard.nextMedicationId
+            equals: $1
+          - path: state.dashboard.nextMedIsTaken
+            equals: false
+      - send: dashboard.markNextTaken
+      - flush: all
+      - expect:
+          - path: state.dashboard.nextMedIsTaken
+            equals: true
+          - path: state.dashboard.takenTodayCount
+            equals: 1
+          - path: state.dashboard.takenLabel
+            equals: "1 of 1 taken"
+      - send: dashboard.markNextTaken
+      - send: dashboard.markNextTaken
+      - flush: all
+      - expect:
+          - path: data.medications[0].stock
+            equals: 4
+          - path: data.logs.count
+            equals: 1
+          - path: state.dashboard.takenTodayCount
+            equals: 1
+
+  - id: taken_count_is_distinct_medications_not_log_rows
+    divergence: D6
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: data.logs.count
+            equals: 3
+          - path: state.medication_tracker.takenTodayCount
+            equals: 2
+          - path: state.medication_tracker.totalCount
+            equals: 3
+          - path: state.dashboard.takenTodayCount
+            equals: 2
+      - note: |
+          Two logs are from today. Under the legacy string match both resolve to medications
+          (see the collision case below), so the distinct count is 2. v0.0.19 counted log
+          ROWS and then clamped with min(count, total); the clamp is gone because the count
+          can no longer exceed the number of medications.
+
+  - id: legacy_string_fallback_keeps_the_name_collision
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.isTaken[$fixture:legacy_pre_medication_id.medications[0].id]
+            equals: true
+          - path: state.medication_tracker.isTaken[$fixture:legacy_pre_medication_id.medications[1].id]
+            equals: true
+      - note: |
+          BACKWARD COMPATIBILITY, NOT A BUG TO FIX. The log says "Vitamin D3 Dose Taken" and
+          carries no medicationId, so the fallback substring match marks BOTH "Vitamin D"
+          and "Vitamin D3" taken. Existing files must keep behaving this way or a user's
+          history changes under them. persistence.yaml#additive_changes_in_1_0.
+
+  - id: legacy_string_fallback_keeps_orphaned_history
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.isTaken[$fixture:legacy_pre_medication_id.medications[2].id]
+            equals: false
+      - note: |
+          "Renamed Since Log" no longer matches "Old Brand Name Dose Taken", so the dose
+          is orphaned. Preserved for pre-1.0 logs.
+
+  - id: yesterday_log_does_not_count_as_today
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.historyLogIds
+            count: 3
+          - path: state.medication_tracker.takenTodayCount
+            equals: 2
+      - advance: { seconds: 43200 }
+      - expect:
+          - path: clock.now
+            equals: "2026-11-08T00:00:00Z"
+          - path: state.medication_tracker.takenTodayCount
+            equals: 0
+      - note: Crossing midnight in the pinned UTC zone clears the today count. Both platforms
+              must resolve "today" in the pinned zone, not the host zone. services.yaml#Clock.
+
+  - id: an_identifier_log_resolves_exactly
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.isTaken[$fixture:legacy_pre_medication_id.medications[2].id]
+            equals: false
+      - send: medication_tracker.markTaken
+        args: { medicationId: "$fixture:legacy_pre_medication_id.medications[2].id" }
+      - flush: all
+      - expect:
+          - path: data.logs[0].medicationId
+            equals: "$fixture:legacy_pre_medication_id.medications[2].id"
+          - path: state.medication_tracker.isTaken[$fixture:legacy_pre_medication_id.medications[2].id]
+            equals: true
+          - path: state.medication_tracker.takenTodayCount
+            equals: 3
+      - note: |
+          "Renamed Since Log" is the only med the legacy fallback does not already mark, so
+          it is the one that can actually be marked here. Its new log carries medicationId
+          and resolves exactly, while the older identifier-less log still collides onto
+          "Vitamin D". The two rules coexist PER LOG, not per file — which is why the
+          fallback is spec'd behavior rather than a migration shim.
+
+  - id: stock_decrement_floors_at_zero
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.decrementStock
+        args: { medicationId: "$fixture:low_stock.medications[3].id" }
+      - flush: all
+      - expect:
+          - path: data.medications[id=$fixture:low_stock.medications[3].id].stock
+            equals: 0
+          - path: store.writeCount
+            equals: 0
+      - note: The button is not disabled at zero, it no-ops. No write on a no-op.
+              MedicationTrackerView.swift:295-299.
+
+  - id: stock_increment_has_no_ceiling_and_preserves_other_fields
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.incrementStock
+        args: { medicationId: "$fixture:notification_matrix.medications[0].id" }
+      - flush: all
+      - expect:
+          - path: data.medications[id=$fixture:notification_matrix.medications[0].id].stock
+            equals: 21
+          - path: data.medications[id=$fixture:notification_matrix.medications[0].id].nextDose
+            equals: "2026-11-07T18:00:00Z"
+          - path: data.medications[id=$fixture:notification_matrix.medications[0].id].active
+            equals: true
+          - path: store.writeCount
+            equals: 1
+          - path: notifications.replaceCount
+            equals: 1
+      - note: Every stock tap persists and triggers a full cancel-and-reschedule.
+
+  - id: mark_taken_at_zero_stock_still_logs
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.markTaken
+        args: { medicationId: "$fixture:low_stock.medications[3].id" }
+      - flush: all
+      - expect:
+          - path: data.medications[id=$fixture:low_stock.medications[3].id].stock
+            equals: 0
+          - path: data.logs.count
+            equals: 1
+          - path: data.logs[0].description
+            equals: "Zero Stock Dose Taken"
+      - note: Q5. max(0, stock - 1) floors but does not block the log. Reachable on a fresh day.
+
+  - id: low_stock_badge_follows_the_setting
+    divergence: D8
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[0].id]
+            equals: false
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[1].id]
+            equals: true
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[2].id]
+            equals: true
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[3].id]
+            equals: true
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[4].id]
+            equals: false
+      - note: |
+          Stock 6 / 5 / 4 / 0 / 1-inactive against threshold 5. "At Threshold" (exactly 5)
+          now shows the badge; v0.0.19 hardcoded stock < 5 so it alerted without a badge.
+          The inactive med is excluded, matching the planner.
+
+  - id: raising_the_threshold_moves_the_badge_and_the_alert_together
+    divergence: D8
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.setLowStockThreshold
+        args: { value: 10 }
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: data.notificationSettings.lowStockThreshold
+            equals: 10
+          - path: state.medication_tracker.isLowStock[$fixture:low_stock.medications[0].id]
+            equals: true
+          - path: notifications
+            count: 4
+      - note: |
+          Stock 6 now badges AND alerts. Four active meds are at or below 10; the inactive one
+          is excluded from both. One selector feeds both surfaces so they cannot drift.
+
+  - id: edit_preserves_next_dose_and_active
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openEdit
+        args: { medicationId: "$fixture:notification_matrix.medications[3].id" }
+      - expect:
+          - path: state.add_medication.mode
+            equals: edit
+          - path: state.add_medication.nameText
+            equals: "Inactive Future Dose"
+          - path: state.add_medication.stockText
+            equals: "20"
+      - send: add_medication.setName
+        args: { text: "Renamed Inactive" }
+      - send: add_medication.setStockText
+        args: { text: "7" }
+      - send: add_medication.save
+      - flush: all
+      - expect:
+          - path: data.medications[id=$fixture:notification_matrix.medications[3].id].name
+            equals: "Renamed Inactive"
+          - path: data.medications[id=$fixture:notification_matrix.medications[3].id].stock
+            equals: 7
+          - path: data.medications[id=$fixture:notification_matrix.medications[3].id].active
+            equals: false
+          - path: data.medications[id=$fixture:notification_matrix.medications[3].id].nextDose
+            equals: "2026-11-08T09:00:00Z"
+          - path: ids.consumed
+            equals: 0
+      - note: AddMedicationView.swift:190-195 overwrites five fields only. There is no active
+              toggle in the form, so an inactive medication cannot be reactivated from the UI.
+
+  - id: cancelling_an_add_writes_nothing
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.openAdd
+      - send: add_medication.setName
+        args: { text: "Discarded" }
+      - send: add_medication.setDosage
+        args: { text: "1mg" }
+      - send: add_medication.cancel
+      - flush: all
+      - expect:
+          - path: data.medications.count
+            equals: 0
+          - path: ids.consumed
+            equals: 0
+          - path: store.writeCount
+            equals: 0
+          - path: state.medication_tracker.formMode
+            equals: closed

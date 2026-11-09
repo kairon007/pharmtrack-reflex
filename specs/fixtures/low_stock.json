@@ -1,0 +1,63 @@
+{
+  "appointments": [],
+  "medications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000021",
+      "name": "Above Threshold",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 6,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000022",
+      "name": "At Threshold",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 5,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000023",
+      "name": "Below Threshold",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Afternoon",
+      "stock": 4,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000024",
+      "name": "Zero Stock",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Evening",
+      "stock": 0,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000025",
+      "name": "Inactive Low Stock",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Evening",
+      "stock": 1,
+      "active": false
+    }
+  ],
+  "consultations": [],
+  "vitals": [],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": false,
+    "appointmentsEnabled": false,
+    "consultationsEnabled": false,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

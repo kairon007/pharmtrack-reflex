@@ -1,0 +1,251 @@
+schema: reflex/behavior/1
+id: app_load
+title: Load lifecycle, demo seeding and the unreadable-file branches
+nodes: [app_root, onboarding]
+evidence:
+  - Sources/AppModel/MedicalViewModel.swift:21-44
+  - Sources/AppModel/MedicalViewModel.swift:55-149
+  - Sources/AppModel/MedicalRepository.swift:41-48
+  - Sources/SharedUI/Medical/MainTabView.swift:95-106
+decisions: [D3, D7, D15]
+unpinned:
+  - "rendered date strings (D15)"
+defaults: { load: false }
+
+# The highest-risk journey in the suite. A user upgrading from v0.0.19 must not lose data,
+# and a corrupt file must never be overwritten with demo content.
+#
+# Seeding rule: the demo set is built by a pure demoSeed(now) function using the RESERVED
+# seed ids from determinism.yaml, consuming ZERO ids from the generator sequence. At the
+# pinned clock it must equal fixtures/seeded_demo.json field for field. That equivalence is
+# asserted below rather than assumed.
+
+cases:
+
+  - id: first_launch_absent_file_seeds_demo
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: loaded
+          - path: state.app_root.hasCompletedOnboarding
+            equals: false
+          - path: state.app_root.data
+            equals: $fixture:seeded_demo
+          - path: store.writeCount
+            equals: 1
+          - path: store.filePresent
+            equals: true
+          - path: ids.consumed
+            equals: 0
+          - path: state.onboarding.visible
+            equals: true
+
+  - id: seed_log_is_coherent
+    divergence: D7
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: data.logs.count
+            equals: 1
+          - path: data.logs[0].description
+            equals: "Vitamin D3 Dose Taken"
+          - path: data.logs[0].medicationId
+            equals: $seed_medication_1
+          - path: data.logs[0].type
+            equals: "Medication Taken"
+          - path: data.logs[0].source
+            equals: "Manual Log"
+          - path: state.dashboard.takenTodayCount
+            equals: 1
+          - path: state.dashboard.todaysMedsCount
+            equals: 3
+          - path: state.medication_tracker.isTaken[$seed_medication_1]
+            equals: true
+          - path: state.medication_tracker.isTaken[$seed_medication_2]
+            equals: false
+    note: |
+      v0.0.19 wrote "Omega-3 Dose Taken" against a seed containing no Omega-3, so the
+      dashboard claimed 1/3 while zero rows rendered checked. D7 repairs the reference.
+      The 1/3 shape is unchanged; the checked row now exists.
+
+  - id: first_launch_unreadable_file_seeds_demo
+    given:
+      store: unreadable
+      key_value: { hasCompletedOnboarding: false }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.data
+            equals: $fixture:seeded_demo
+          - path: store.writeCount
+            equals: 1
+      - note: On the incomplete-onboarding path a parse error and an absent file are the
+              same branch. MedicalViewModel.swift:27-32 and :35-42 are behaviorally identical.
+
+  - id: returning_launch_loads_file_without_writing
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: loaded
+          - path: state.app_root.loadError
+            is_null: true
+          - path: state.app_root.data
+            equals: $fixture:seeded_demo
+          - path: store.writeCount
+            equals: 0
+          - path: state.onboarding.visible
+            equals: false
+          - path: notifications.replaceCount
+            equals: 1
+      - note: A successful load reschedules notifications but does NOT re-save the file.
+              MedicalViewModel.swift:24-25.
+
+  - id: returning_launch_absent_file_is_empty_not_seeded
+    given:
+      store: absent
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: data.medications.count
+            equals: 0
+          - path: data.appointments.count
+            equals: 0
+          - path: data.vitals.count
+            equals: 0
+          - path: data.logs.count
+            equals: 0
+          - path: data.notificationSettings.lowStockThreshold
+            equals: 5
+          - path: store.writeCount
+            equals: 0
+          - path: state.dashboard.heroBranch
+            equals: empty
+
+  - id: unreadable_file_after_onboarding_is_never_overwritten
+    given:
+      store: unreadable
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: data.medications.count
+            equals: 0
+          - path: state.app_root.loadPhase
+            equals: unreadable
+          - path: state.app_root.loadError
+            not_null: true
+          - path: store.writeCount
+            equals: 0
+          - path: store.filePresent
+            equals: true
+      - note: |
+          THE DATA-LOSS GUARD. Empty in memory, bad file untouched on disk, no demo seed.
+          v0.0.19 only printed the error; surfacing loadPhase is the one added behavior here
+          and it changes no persisted data. persistence.yaml#error_handling.
+
+  - id: partial_top_level_keys_default_leniently
+    given:
+      fixture: partial_top_level
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: loaded
+          - path: data.medications.count
+            equals: 1
+          - path: data.appointments.count
+            equals: 0
+          - path: data.consultations.count
+            equals: 0
+          - path: data.vitals.count
+            equals: 0
+          - path: data.logs.count
+            equals: 0
+          - path: data.notificationSettings.allNotificationsEnabled
+            equals: true
+          - path: data.notificationSettings.lowStockThreshold
+            equals: 5
+      - note: A stricter decoder would reject a file the shipping app accepts.
+              persistence.yaml#leniency.
+
+  - id: explicit_null_on_optional_field_loads
+    given:
+      fixture: null_on_optional
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: loaded
+          - path: data.appointments[0].notes
+            is_null: true
+
+  - id: explicit_null_on_required_field_throws
+    given:
+      fixture: null_on_required
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: unreadable
+          - path: store.writeCount
+            equals: 0
+          - path: store.filePresent
+            equals: true
+      - note: Consultation.notes is a non-optional String. Kotlin must reproduce the
+              optional/required null asymmetry rather than treating every null as absent.
+
+  - id: malformed_json_after_onboarding_leaves_file_alone
+    given:
+      fixture: malformed
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: unreadable
+          - path: data.medications.count
+            equals: 0
+          - path: store.writeCount
+            equals: 0
+          - path: store.filePresent
+            equals: true
+
+  - id: onboarding_flag_is_read_from_the_legacy_key
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.onAppear
+      - flush: all
+      - expect:
+          - path: kv.hasCompletedOnboarding
+            equals: true
+          - path: state.onboarding.visible
+            equals: false
+      - note: persistence.yaml#key_value_store. The key is not renamed or namespaced on
+              upgrade, so an existing user never sees the tour or gets reseeded.

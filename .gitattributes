@@ -1,0 +1,4 @@
+# Gradle wrapper scripts. The batch file needs CRLF to run on Windows; the shell script
+# needs LF. core.autocrlf=input would otherwise flatten both to LF in the repository.
+*.bat text eol=crlf
+*.sh text eol=lf

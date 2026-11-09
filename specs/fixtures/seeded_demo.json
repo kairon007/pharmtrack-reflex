@@ -1,0 +1,83 @@
+{
+  "appointments": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "doctorName": "Dr. Michael Smith",
+      "specialty": "Cardiology",
+      "type": "General Checkup",
+      "date": "2026-11-07T14:30:00Z",
+      "location": "City Clinic",
+      "notes": "Bring previous reports",
+      "notify": true
+    }
+  ],
+  "medications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Vitamin D3",
+      "dosage": "1000IU",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 24,
+      "active": true,
+      "nextDose": "2026-11-07T09:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Atorvastatin",
+      "dosage": "10mg",
+      "instructions": "After breakfast",
+      "schedule": "Morning",
+      "stock": 24,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Ibuprofen",
+      "dosage": "400mg",
+      "instructions": "Every 6 hours",
+      "schedule": "Afternoon",
+      "stock": 3,
+      "active": true
+    }
+  ],
+  "consultations": [
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "doctorName": "Dr. Sarah Jenkins",
+      "specialty": "Cardiologist",
+      "date": "2026-10-08T12:00:00Z",
+      "notes": "Continue 5mg Lisinopril daily; follow-up in 3 months.",
+      "linkedMedications": []
+    }
+  ],
+  "vitals": [
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "type": "weight",
+      "value": 75.5,
+      "date": "2026-11-06T12:00:00Z",
+      "notes": "Morning weigh-in"
+    }
+  ],
+  "logs": [
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "type": "Medication Taken",
+      "description": "Vitamin D3 Dose Taken",
+      "date": "2026-11-07T08:00:00Z",
+      "source": "Manual Log",
+      "medicationId": "00000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

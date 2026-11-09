@@ -1,0 +1,17 @@
+{
+  "appointments": [],
+  "medications": [],
+  "consultations": [],
+  "vitals": [],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

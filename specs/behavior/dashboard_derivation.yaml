@@ -1,0 +1,368 @@
+schema: reflex/behavior/1
+id: dashboard_derivation
+title: Greeting, today's plan, next medication, upcoming list and hero branch
+nodes: [dashboard, app_root, medication_tracker]
+evidence:
+  - Sources/SharedUI/Medical/DashboardView.swift:29-54
+  - Sources/SharedUI/Medical/DashboardView.swift:146-185
+  - Sources/SharedUI/Medical/DashboardView.swift:283-301
+  - Sources/SharedUI/Medical/DashboardView.swift:361-381
+decisions: [D6, D7, D16]
+unpinned:
+  - "rendered date and time strings (D15)"
+
+cases:
+
+  - id: greeting_has_three_branches_and_no_night
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T00:00:00Z"
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good morning"
+      - note: Hour 0 is morning. There is no night branch — DashboardView.swift:49-54.
+
+  - id: greeting_boundary_at_eleven
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T11:59:59Z"
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good morning"
+
+  - id: greeting_boundary_at_noon
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T12:00:00Z"
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good afternoon"
+
+  - id: greeting_boundary_at_seventeen
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T17:59:59Z"
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good afternoon"
+
+  - id: greeting_boundary_at_eighteen
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T18:00:00Z"
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good evening"
+
+  - id: greeting_at_twenty_three
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T23:59:59Z"
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good evening"
+      - note: The hour is read in the pinned zone. Both platforms must use that zone, not
+              the host's, or this case passes on one CI runner and fails on another.
+
+  - id: seed_derivations
+    divergence: D7
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.dashboard.greeting
+            equals: "Good afternoon"
+          - path: state.dashboard.todaysMedsCount
+            equals: 3
+          - path: state.dashboard.takenTodayCount
+            equals: 1
+          - path: state.dashboard.takenLabel
+            equals: "1 of 3 taken"
+          - path: state.dashboard.takenFraction
+            close_to: { value: 0.3333333333, tolerance: 0.000001 }
+          - path: state.dashboard.nextMedicationId
+            equals: $seed_medication_1
+          - path: state.dashboard.upcomingAppointmentIds
+            equals: [$seed_appointment_1]
+          - path: state.dashboard.recentLogIds
+            equals: [$seed_log_1]
+          - path: state.dashboard.heroBranch
+            equals: meds
+
+  - id: next_medication_does_not_filter_by_future_date
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: clock.now
+            equals: "2026-11-07T12:00:00Z"
+          - path: data.medications[id=$seed_medication_1].nextDose
+            equals: "2026-11-07T09:00:00Z"
+          - path: state.dashboard.nextMedicationId
+            equals: $seed_medication_1
+          - path: state.dashboard.nextMedIsTaken
+            equals: true
+      - note: |
+          Q1. The 09:00 dose is three hours in the PAST and still renders as "Next dose".
+          DashboardView.swift:39-41 sorts but never filters. The notification planner DOES
+          filter it out, so the UI and the schedule legitimately disagree.
+          nextMedIsTaken is true because D7's repaired seed log points at this medication.
+
+  - id: nil_next_dose_sorts_last
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.dashboard.nextMedicationId
+            equals: "$fixture:notification_matrix.medications[1].id"
+      - note: |
+          "Past Dose" at 09:00 beats "Future Dose" at 18:00 because there is no future
+          filter, and both beat "No Dose Scheduled" whose nil coalesces to distantFuture.
+          The inactive med is NOT excluded here either — only the planner excludes it.
+
+  - id: equal_next_dose_ties_break_by_id
+    divergence: D16
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications:
+          - id: "00000000-0000-4000-8000-0000000000E2"
+            name: "Higher Id"
+            dosage: "1mg"
+            instructions: ""
+            schedule: "Morning"
+            stock: 5
+            active: true
+            nextDose: "2026-11-07T18:00:00Z"
+          - id: "00000000-0000-4000-8000-0000000000E1"
+            name: "Lower Id"
+            dosage: "1mg"
+            instructions: ""
+            schedule: "Morning"
+            stock: 5
+            active: true
+            nextDose: "2026-11-07T18:00:00Z"
+    steps:
+      - expect:
+          - path: state.dashboard.nextMedicationId
+            equals: "00000000-0000-4000-8000-0000000000E1"
+      - note: Storage order puts the higher id first, so an insertion-order tie-break would
+              pick the wrong one. D16 pins the lowest id.
+
+  - id: no_medications_means_no_next_medication
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.dashboard.nextMedicationId
+            is_null: true
+          - path: state.dashboard.todaysMedsCount
+            equals: 0
+          - path: state.dashboard.takenFraction
+            equals: 0.0
+          - path: state.dashboard.heroBranch
+            equals: empty
+      - note: The total==0 branch must not divide by zero.
+
+  - id: hero_falls_back_to_the_next_appointment
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications: []
+    steps:
+      - expect:
+          - path: state.dashboard.heroBranch
+            equals: appointment
+          - path: state.dashboard.upcomingAppointmentIds
+            equals:
+              - "$fixture:notification_matrix.appointments[0].id"
+              - "$fixture:notification_matrix.appointments[1].id"
+              - "$fixture:notification_matrix.appointments[2].id"
+      - note: |
+          Q2. The filter is date >= now, INCLUSIVE, and it does NOT check notify. "Future
+          Muted" (notify=false) still appears in the list; only the planner honours notify.
+          "Past Appointment" is excluded. Sorted ascending, prefix 3.
+
+  - id: upcoming_list_is_capped_at_three
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        appointments:
+          - id: "00000000-0000-4000-8000-0000000000F1"
+            doctorName: "One"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-08T09:00:00Z"
+            location: "L"
+            notify: true
+          - id: "00000000-0000-4000-8000-0000000000F2"
+            doctorName: "Two"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-09T09:00:00Z"
+            location: "L"
+            notify: true
+          - id: "00000000-0000-4000-8000-0000000000F3"
+            doctorName: "Three"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-10T09:00:00Z"
+            location: "L"
+            notify: true
+          - id: "00000000-0000-4000-8000-0000000000F4"
+            doctorName: "Four"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-11T09:00:00Z"
+            location: "L"
+            notify: true
+    steps:
+      - expect:
+          - path: state.dashboard.upcomingAppointmentIds
+            equals:
+              - "00000000-0000-4000-8000-0000000000F1"
+              - "00000000-0000-4000-8000-0000000000F2"
+              - "00000000-0000-4000-8000-0000000000F3"
+      - note: DashboardView.swift:301 applies prefix(3) at render; the selector carries it so
+              the cap is testable without a view.
+
+  - id: an_appointment_exactly_now_is_included
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        appointments:
+          - id: "00000000-0000-4000-8000-0000000000F5"
+            doctorName: "Right Now"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-07T12:00:00Z"
+            location: "L"
+            notify: true
+    steps:
+      - expect:
+          - path: state.dashboard.upcomingAppointmentIds
+            equals: ["00000000-0000-4000-8000-0000000000F5"]
+      - note: ">= not >. A > comparison would drop this row."
+
+  - id: recent_activity_is_storage_order_capped_at_five
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.dashboard.recentLogIds
+            equals:
+              - "$fixture:legacy_pre_medication_id.logs[0].id"
+              - "$fixture:legacy_pre_medication_id.logs[1].id"
+              - "$fixture:legacy_pre_medication_id.logs[2].id"
+      - note: |
+          No filter and no re-sort in the view. Recency comes only from insert(at: 0) in
+          the reducer, so a loaded file's order is respected verbatim.
+
+  - id: empty_activity_state
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.dashboard.recentLogIds
+            equals: []
+
+  - id: taken_count_never_exceeds_the_medication_count
+    divergence: D6
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications:
+          - id: "00000000-0000-4000-8000-0000000000A1"
+            name: "Only Med"
+            dosage: "1mg"
+            instructions: ""
+            schedule: "Morning"
+            stock: 10
+            active: true
+        logs:
+          - id: "00000000-0000-4000-8000-0000000000A2"
+            type: "Medication Taken"
+            description: "Only Med Dose Taken"
+            date: "2026-11-07T08:00:00Z"
+            source: "Manual Log"
+          - id: "00000000-0000-4000-8000-0000000000A3"
+            type: "Medication Taken"
+            description: "Only Med Dose Taken"
+            date: "2026-11-07T09:00:00Z"
+            source: "Manual Log"
+          - id: "00000000-0000-4000-8000-0000000000A4"
+            type: "Medication Taken"
+            description: "Only Med Dose Taken"
+            date: "2026-11-07T10:00:00Z"
+            source: "Manual Log"
+    steps:
+      - expect:
+          - path: data.logs.count
+            equals: 3
+          - path: state.dashboard.takenTodayCount
+            equals: 1
+          - path: state.dashboard.takenLabel
+            equals: "1 of 1 taken"
+          - path: state.dashboard.takenFraction
+            equals: 1.0
+      - note: |
+          A v0.0.19 file written by repeated dashboard taps holds three duplicate logs for
+          one medication. Counting DISTINCT medications reads that history correctly as
+          1 of 1 without needing the legacy min() clamp. The duplicate rows are not deleted.
+
+  - id: quick_actions_open_the_matching_form
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: dashboard.quickAction
+        args: { kind: doctor }
+      - expect:
+          - path: state.dashboard.presentedSheet
+            equals: addConsultation
+      - send: dashboard.dismissSheet
+      - send: dashboard.quickAction
+        args: { kind: meds }
+      - expect:
+          - path: state.dashboard.presentedSheet
+            equals: addMedication
+      - send: dashboard.dismissSheet
+      - send: dashboard.quickAction
+        args: { kind: visit }
+      - expect:
+          - path: state.dashboard.presentedSheet
+            equals: addAppointment
+      - send: dashboard.dismissSheet
+      - send: dashboard.quickAction
+        args: { kind: vitals }
+      - expect:
+          - path: state.dashboard.presentedSheet
+            equals: addVital
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 0
+      - note: Opening a form writes nothing. DashboardView.swift:249-254.

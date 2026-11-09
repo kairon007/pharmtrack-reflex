@@ -1,0 +1,383 @@
+schema: reflex/behavior/1
+id: appointment_crud
+title: Add, edit, delete; date re-sort, day filter and the rolling strip
+nodes: [appointments, add_appointment, app_root]
+evidence:
+  - Sources/SharedUI/Medical/AppointmentsView.swift:112-114
+  - Sources/SharedUI/Medical/AppointmentsView.swift:146-159
+  - Sources/SharedUI/Medical/AppointmentsView.swift:236-238
+  - Sources/SharedUI/Medical/AddAppointmentView.swift:128-196
+  - Sources/AppModel/MedicalViewModel.swift:169-171
+  - Sources/AppModel/MedicalViewModel.swift:228-234
+decisions: [D11, D16]
+unpinned:
+  - "rendered date and time strings (D15)"
+
+cases:
+
+  - id: add_requires_four_fields
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openAdd
+      - expect:
+          - path: state.add_appointment.canSave
+            equals: false
+      - send: add_appointment.setDoctorName
+        args: { text: "Dr. Alice Rao" }
+      - send: add_appointment.setSpecialty
+        args: { text: "Cardiology" }
+      - send: add_appointment.setType
+        args: { text: "Follow-up" }
+      - expect:
+          - path: state.add_appointment.canSave
+            equals: false
+      - send: add_appointment.setLocation
+        args: { text: "City Clinic" }
+      - expect:
+          - path: state.add_appointment.canSave
+            equals: true
+      - note: doctorName, specialty, type and location. Notes is optional.
+              AddAppointmentView.swift:128, :163.
+
+  - id: whitespace_passes_all_four_gates
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: " " }
+      - send: add_appointment.setSpecialty
+        args: { text: " " }
+      - send: add_appointment.setType
+        args: { text: " " }
+      - send: add_appointment.setLocation
+        args: { text: " " }
+      - expect:
+          - path: state.add_appointment.canSave
+            equals: true
+      - send: add_appointment.save
+      - flush: all
+      - expect:
+          - path: data.appointments.count
+            equals: 1
+          - path: data.appointments[0].doctorName
+            equals: " "
+      - note: isEmpty without trimming, persisted untrimmed. D13.preserved_asymmetry.
+
+  - id: type_is_free_text_and_notify_is_hardcoded
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: "Dr. Alice Rao" }
+      - send: add_appointment.setSpecialty
+        args: { text: "Cardiology" }
+      - send: add_appointment.setType
+        args: { text: "Anything At All 123" }
+      - send: add_appointment.setLocation
+        args: { text: "City Clinic" }
+      - send: add_appointment.save
+      - flush: all
+      - expect:
+          - path: data.appointments[0].type
+            equals: "Anything At All 123"
+          - path: data.appointments[0].notify
+            equals: true
+          - path: data.appointments[0].notes
+            is_null: true
+          - path: data.appointments[0].id
+            equals: $1
+          - path: ids.consumed
+            equals: 1
+      - note: Q8. No enum and no notify toggle exist. Do not invent either in 1.0.
+
+  - id: add_re_sorts_the_whole_array_by_date
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: "Later" }
+      - send: add_appointment.setSpecialty
+        args: { text: "S" }
+      - send: add_appointment.setType
+        args: { text: "T" }
+      - send: add_appointment.setLocation
+        args: { text: "L" }
+      - send: add_appointment.setDate
+        args: { date: "2026-11-10T09:00:00Z" }
+      - send: add_appointment.save
+      - flush: all
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: "Earlier" }
+      - send: add_appointment.setSpecialty
+        args: { text: "S" }
+      - send: add_appointment.setType
+        args: { text: "T" }
+      - send: add_appointment.setLocation
+        args: { text: "L" }
+      - send: add_appointment.setDate
+        args: { date: "2026-11-08T09:00:00Z" }
+      - send: add_appointment.save
+      - flush: all
+      - expect:
+          - path: data.appointments[0].doctorName
+            equals: "Earlier"
+          - path: data.appointments[1].doctorName
+            equals: "Later"
+      - note: MedicalViewModel.swift:169-171 appends then sorts. Appointments are NOT
+              newest-first in storage, unlike vitals and consultations.
+
+  - id: equal_dates_break_the_tie_by_id
+    divergence: D16
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: "First Added" }
+      - send: add_appointment.setSpecialty
+        args: { text: "S" }
+      - send: add_appointment.setType
+        args: { text: "T" }
+      - send: add_appointment.setLocation
+        args: { text: "L" }
+      - send: add_appointment.setDate
+        args: { date: "2026-11-10T09:00:00Z" }
+      - send: add_appointment.save
+      - flush: all
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: "Second Added" }
+      - send: add_appointment.setSpecialty
+        args: { text: "S" }
+      - send: add_appointment.setType
+        args: { text: "T" }
+      - send: add_appointment.setLocation
+        args: { text: "L" }
+      - send: add_appointment.setDate
+        args: { date: "2026-11-10T09:00:00Z" }
+      - send: add_appointment.save
+      - flush: all
+      - expect:
+          - path: data.appointments[0].id
+            equals: $1
+          - path: data.appointments[1].id
+            equals: $2
+      - note: The generator sequence is ascending, so id order matches insertion order here.
+              The point is that the order is DEFINED; Swift's sorted(by:) left it arbitrary.
+
+  - id: edit_re_sorts_and_can_move_the_row_off_the_selected_day
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openAdd
+      - send: add_appointment.setDoctorName
+        args: { text: "Movable" }
+      - send: add_appointment.setSpecialty
+        args: { text: "S" }
+      - send: add_appointment.setType
+        args: { text: "T" }
+      - send: add_appointment.setLocation
+        args: { text: "L" }
+      - send: add_appointment.setDate
+        args: { date: "2026-11-07T15:00:00Z" }
+      - send: add_appointment.save
+      - flush: all
+      - send: appointments.selectDay
+        args: { date: "2026-11-07T00:00:00Z" }
+      - expect:
+          - path: state.appointments.visibleIds
+            equals: [$1]
+      - send: appointments.openEdit
+        args: { appointmentId: $1 }
+      - expect:
+          - path: state.add_appointment.mode
+            equals: edit
+          - path: state.add_appointment.doctorNameText
+            equals: "Movable"
+          - path: state.add_appointment.date
+            equals: "2026-11-07T15:00:00Z"
+      - send: add_appointment.setDate
+        args: { date: "2026-11-09T15:00:00Z" }
+      - send: add_appointment.save
+      - flush: all
+      - expect:
+          - path: data.appointments[0].id
+            equals: $1
+          - path: data.appointments[0].date
+            equals: "2026-11-09T15:00:00Z"
+          - path: state.appointments.visibleIds
+            equals: []
+          - path: ids.consumed
+            equals: 1
+      - note: MedicalViewModel.swift:228-234 re-sorts on update too. The row vanishes from
+              the current day because the day filter still points at 11-07.
+
+  - id: edit_preserves_notify
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.openEdit
+        args: { appointmentId: "$fixture:notification_matrix.appointments[2].id" }
+      - send: add_appointment.setDoctorName
+        args: { text: "Still Muted" }
+      - send: add_appointment.save
+      - flush: all
+      - expect:
+          - path: data.appointments[id=$fixture:notification_matrix.appointments[2].id].notify
+            equals: false
+          - path: data.appointments[id=$fixture:notification_matrix.appointments[2].id].doctorName
+            equals: "Still Muted"
+      - note: |
+          "Future Muted" has notify=false and there is no toggle to change it.
+          AddAppointmentView.swift:180 copies existing.notify.
+
+  - id: day_filter_shows_past_appointments
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.selectDay
+        args: { date: "2026-11-01T00:00:00Z" }
+      - expect:
+          - path: state.appointments.visibleIds
+            equals: ["$fixture:notification_matrix.appointments[3].id"]
+          - path: state.appointments.headerKind
+            equals: nDaysAgo
+      - note: |
+          Q2. The Appointments tab applies ONLY the same-day predicate — no date >= now
+          filter. The dashboard's upcoming list does filter, meaning the same appointment
+          is visible here and absent there. Preserved.
+
+  - id: header_kind_branches
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.selectDay
+        args: { date: "2026-11-07T00:00:00Z" }
+      - expect:
+          - path: state.appointments.headerKind
+            equals: today
+      - send: appointments.selectDay
+        args: { date: "2026-11-08T00:00:00Z" }
+      - expect:
+          - path: state.appointments.headerKind
+            equals: inNDays
+          - path: state.appointments.headerDayCount
+            equals: 1
+      - send: appointments.selectDay
+        args: { date: "2026-11-05T00:00:00Z" }
+      - expect:
+          - path: state.appointments.headerKind
+            equals: nDaysAgo
+          - path: state.appointments.headerDayCount
+            equals: 2
+      - note: AppointmentsView.swift:21-35. The singular/plural wording is UI; the count and
+              the branch are state.
+
+  - id: strip_is_a_rolling_window_not_a_calendar_week
+    divergence: D11
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.appointments.stripCenter
+            equals: "2026-11-07T00:00:00Z"
+          - path: state.appointments.stripDates
+            equals:
+              - "2026-11-04T00:00:00Z"
+              - "2026-11-05T00:00:00Z"
+              - "2026-11-06T00:00:00Z"
+              - "2026-11-07T00:00:00Z"
+              - "2026-11-08T00:00:00Z"
+              - "2026-11-09T00:00:00Z"
+              - "2026-11-10T00:00:00Z"
+      - send: appointments.nextWeek
+      - expect:
+          - path: state.appointments.weekOffset
+            equals: 1
+          - path: state.appointments.stripCenter
+            equals: "2026-11-14T00:00:00Z"
+      - send: appointments.previousWeek
+      - send: appointments.previousWeek
+      - expect:
+          - path: state.appointments.weekOffset
+            equals: -1
+          - path: state.appointments.stripCenter
+            equals: "2026-10-31T00:00:00Z"
+      - note: Same dayWindow selector as vitals_detail, so the two strips cannot drift.
+
+  - id: paging_does_not_move_the_selection
+    divergence: D11
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.selectDay
+        args: { date: "2026-11-07T00:00:00Z" }
+      - send: appointments.nextWeek
+      - send: appointments.nextWeek
+      - expect:
+          - path: state.appointments.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+          - path: state.appointments.weekOffset
+            equals: 2
+          - path: state.appointments.visibleIds
+            equals: []
+
+  - id: delete_is_immediate_with_no_confirmation
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.delete
+        args: { appointmentId: "$fixture:notification_matrix.appointments[0].id" }
+      - flush: all
+      - expect:
+          - path: data.appointments.count
+            equals: 3
+          - path: data.appointments[id=$fixture:notification_matrix.appointments[0].id]
+            is_null: true
+          - path: store.writeCount
+            equals: 1
+          - path: notifications.replaceCount
+            equals: 1
+      - note: AppointmentsView.swift:236-238. No dialog, no swipe, no undo.
+
+  - id: deleting_an_absent_appointment_id_does_not_write
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.delete
+        args: { appointmentId: "00000000-0000-4000-8000-00000000FFFF" }
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 0
+
+  - id: new_appointment_defaults_to_the_selected_day
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: appointments.selectDay
+        args: { date: "2026-11-12T00:00:00Z" }
+      - send: appointments.openAdd
+      - expect:
+          - path: state.add_appointment.date
+            equals: "2026-11-12T00:00:00Z"
+      - note: AppointmentsView.swift:71 passes the strip's selected date into the form.

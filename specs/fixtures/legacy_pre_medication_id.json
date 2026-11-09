@@ -1,0 +1,67 @@
+{
+  "appointments": [],
+  "medications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000041",
+      "name": "Vitamin D",
+      "dosage": "1000IU",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 20,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000042",
+      "name": "Vitamin D3",
+      "dosage": "2000IU",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 20,
+      "active": true
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000043",
+      "name": "Renamed Since Log",
+      "dosage": "5mg",
+      "instructions": "After breakfast",
+      "schedule": "Evening",
+      "stock": 20,
+      "active": true
+    }
+  ],
+  "consultations": [],
+  "vitals": [],
+  "logs": [
+    {
+      "id": "00000000-0000-4000-8000-000000000044",
+      "type": "Medication Taken",
+      "description": "Vitamin D3 Dose Taken",
+      "date": "2026-11-07T08:00:00Z",
+      "source": "Manual Log"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000045",
+      "type": "Medication Taken",
+      "description": "Old Brand Name Dose Taken",
+      "date": "2026-11-07T09:00:00Z",
+      "source": "Manual Log"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000046",
+      "type": "Medication Taken",
+      "description": "Vitamin D Dose Taken",
+      "date": "2026-11-06T09:00:00Z",
+      "source": "Manual Log"
+    }
+  ],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

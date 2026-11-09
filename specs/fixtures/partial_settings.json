@@ -1,0 +1,21 @@
+{
+  "appointments": [],
+  "medications": [
+    {
+      "id": "00000000-0000-4000-8000-000000000061",
+      "name": "Partial Settings Med",
+      "dosage": "10mg",
+      "instructions": "With Food",
+      "schedule": "Morning",
+      "stock": 20,
+      "active": true
+    }
+  ],
+  "consultations": [],
+  "vitals": [],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "lowStockThreshold": 5
+  }
+}

@@ -1,0 +1,140 @@
+name: Reflex parity
+
+# The gate: both runners execute the same journeys and CI diffs their canonical state
+# streams. contracts/runner.yaml#comparison — any divergence fails the PR.
+#
+# Make "Reflex parity / Parity gate" a REQUIRED status check in branch protection, so a
+# PR cannot merge while the two platforms disagree.
+on:
+  pull_request:
+    branches: [main, reflex]
+  push:
+    branches: [main, reflex]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reflex-parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  specs:
+    name: Specs and fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate the reflex tree
+        run: |
+          if [ -d "reflex/specs" ]; then echo "REFLEX_ROOT=reflex" >> "$GITHUB_ENV"; else echo "REFLEX_ROOT=." >> "$GITHUB_ENV"; fi
+          echo "reflex tree at '$REFLEX_ROOT'"
+
+      - name: Install the YAML parser used by the validators
+        run: npm install --no-save --no-package-lock --prefix "$RUNNER_TEMP/yaml" js-yaml@4
+
+      - name: Validate the fixtures against the schema
+        env:
+          NODE_PATH: ${{ runner.temp }}/yaml/node_modules
+        run: node "$REFLEX_ROOT/tools/validate-fixtures.js" "$REFLEX_ROOT/specs"
+
+      - name: Validate the behavior suite
+        env:
+          NODE_PATH: ${{ runner.temp }}/yaml/node_modules
+        run: node "$REFLEX_ROOT/tools/validate-behavior.js" "$REFLEX_ROOT/specs"
+
+  ios:
+    name: iOS runner
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate the reflex tree
+        run: |
+          if [ -d "reflex/specs" ]; then echo "REFLEX_ROOT=reflex" >> "$GITHUB_ENV"; else echo "REFLEX_ROOT=." >> "$GITHUB_ENV"; fi
+
+      - name: Build the iOS runner
+        run: cd "$REFLEX_ROOT/ios" && swift build -c release
+
+      - name: Run the iOS runner
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          REFLEX_SPECS_DIR="$GITHUB_WORKSPACE/$REFLEX_ROOT/specs" \
+            "$REFLEX_ROOT/ios/.build/release/reflex-runner" \
+            --platform ios --spec '*.yaml' --out "$RUNNER_TEMP/out/ios.ndjson"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-stream
+          path: ${{ runner.temp }}/out/ios.ndjson
+          if-no-files-found: error
+
+  android:
+    name: Android runner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Locate the reflex tree
+        run: |
+          if [ -d "reflex/specs" ]; then echo "REFLEX_ROOT=reflex" >> "$GITHUB_ENV"; else echo "REFLEX_ROOT=." >> "$GITHUB_ENV"; fi
+
+      # The parity gate needs the headless JVM modules only. :app needs the Android SDK, which
+      # this runner does not have, so the app module is left out of the build.
+      - name: Build the Android runner
+        env:
+          REFLEX_SKIP_ANDROID_APP: '1'
+        run: cd "$REFLEX_ROOT/android" && ./gradlew --no-daemon :tools:reflex-runner:installDist
+
+      - name: Run the Android runner
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          REFLEX_SPECS_DIR="$GITHUB_WORKSPACE/$REFLEX_ROOT/specs" \
+            "$REFLEX_ROOT/android/tools/reflex-runner/build/install/reflex-runner/bin/reflex-runner" \
+            --platform android --spec '*.yaml' --out "$RUNNER_TEMP/out/android.ndjson"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-stream
+          path: ${{ runner.temp }}/out/android.ndjson
+          if-no-files-found: error
+
+  gate:
+    name: Parity gate
+    needs: [specs, ios, android]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Locate the reflex tree
+        run: |
+          if [ -d "reflex/specs" ]; then echo "REFLEX_ROOT=reflex" >> "$GITHUB_ENV"; else echo "REFLEX_ROOT=." >> "$GITHUB_ENV"; fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/streams
+
+      - name: Check both streams were produced
+        run: |
+          ls -l "$RUNNER_TEMP/streams"
+          test -f "$RUNNER_TEMP/streams/ios-stream/ios.ndjson" || { echo "the iOS runner produced no stream — see the 'iOS runner' job log" >&2; exit 1; }
+          test -f "$RUNNER_TEMP/streams/android-stream/android.ndjson" || { echo "the Android runner produced no stream — see the 'Android runner' job log" >&2; exit 1; }
+
+      - name: Diff the two state streams
+        run: |
+          node "$REFLEX_ROOT/tools/diff-parity.js" \
+            "$RUNNER_TEMP/streams/ios-stream/ios.ndjson" \
+            "$RUNNER_TEMP/streams/android-stream/android.ndjson"

@@ -1,0 +1,9 @@
+{
+  "appointments": [
+    {
+      "id": "00000000-0000-4000-8000-000000000071",
+      "doctorName": "Truncated Write",
+      "specialty": "Cardiology",
+      "type": "General Checkup",
+      "date": "2026-11-07T14:30:00Z",
+      "location": "City Clinic",

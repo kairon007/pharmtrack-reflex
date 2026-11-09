@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tunnxo.com/schemas/medical_data-1.json",
+  "title": "MedicalData",
+  "description": "On-device payload for medical_data.json. Derived statically from Sources/AppModel/MedicalModels.swift @ 3887aa8b (PharmTrack v0.0.19). Describes the READ contract: MedicalData.init(from:) uses decodeIfPresent for all six collections, so any key may be absent. Writers must emit all six (see persistence.yaml). Unknown keys are ignored by Foundation's decoder, which is how additive fields such as Log.medicationId stay backward-compatible.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "appointments": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/Appointment" }
+    },
+    "medications": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/Medication" }
+    },
+    "consultations": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/Consultation" }
+    },
+    "vitals": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/Vital" }
+    },
+    "logs": {
+      "type": "array",
+      "default": [],
+      "items": { "$ref": "#/$defs/Log" }
+    },
+    "notificationSettings": {
+      "$ref": "#/$defs/NotificationSettings",
+      "default": {
+        "allNotificationsEnabled": true,
+        "medicationsEnabled": true,
+        "appointmentsEnabled": true,
+        "consultationsEnabled": true,
+        "lowStockEnabled": true,
+        "lowStockThreshold": 5,
+        "medicationReminderTime": "At time of event",
+        "appointmentReminderTime": "1 day before"
+      }
+    }
+  },
+  "$defs": {
+    "UUID": {
+      "type": "string",
+      "description": "Foundation encodes UUID as UPPERCASE via uuidString. Readers MUST accept either case (Kotlin's UUID.toString() is lowercase); writers SHOULD emit uppercase to match the legacy encoder. Spec equality compares parsed UUID values, never string case.",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "ISO8601Date": {
+      "type": "string",
+      "description": "JSONEncoder/Decoder .iso8601 strategy. EXACTLY seconds precision, UTC 'Z'. NO fractional seconds and NO numeric offsets — ISO8601DateFormatter's default options reject both. A Kotlin writer emitting millis or '+00:00' produces a file the legacy iOS app cannot read.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "Appointment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "doctorName", "specialty", "type", "date", "location", "notify"],
+      "properties": {
+        "id": { "$ref": "#/$defs/UUID" },
+        "doctorName": { "type": "string" },
+        "specialty": { "type": "string" },
+        "type": {
+          "type": "string",
+          "description": "Free text, e.g. 'General Checkup', 'Follow-up'. Not an enum in v0.0.19."
+        },
+        "date": { "$ref": "#/$defs/ISO8601Date" },
+        "location": { "type": "string" },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "Optional in Swift. Synthesized encode uses encodeIfPresent so the KEY IS ABSENT when nil — writers must omit it. On READ an explicit null is tolerated, because decodeIfPresent maps null to nil."
+        },
+        "notify": { "type": "boolean" }
+      }
+    },
+    "Medication": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "name", "dosage", "instructions", "schedule", "stock", "active"],
+      "properties": {
+        "id": { "$ref": "#/$defs/UUID" },
+        "name": { "type": "string" },
+        "dosage": { "type": "string" },
+        "instructions": { "type": "string" },
+        "schedule": {
+          "type": "string",
+          "enum": ["Morning", "Afternoon", "Evening"],
+          "description": "String in v0.0.19, becomes an enum in Reflex Core. Raw values MUST stay exactly these three — they are persisted and drive grouping."
+        },
+        "stock": {
+          "type": "integer",
+          "description": "Decremented by markMedicationTaken, floored at 0. Inventory minus button guards stock > 0."
+        },
+        "active": { "type": "boolean" },
+        "nextDose": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+          "description": "Optional; KEY ABSENT when nil, explicit null tolerated on read. markMedicationTaken sets it to now + 86400s regardless of schedule."
+        }
+      }
+    },
+    "Consultation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "doctorName", "specialty", "date", "notes", "linkedMedications"],
+      "properties": {
+        "id": { "$ref": "#/$defs/UUID" },
+        "doctorName": { "type": "string" },
+        "specialty": { "type": "string" },
+        "date": { "$ref": "#/$defs/ISO8601Date" },
+        "notes": {
+          "type": "string",
+          "description": "NON-optional here, unlike Appointment.notes. Always written, may be empty string."
+        },
+        "linkedMedications": {
+          "type": "array",
+          "description": "Always written, [] when empty. Dangling IDs are tolerated: the form resolves names via first(where:) and silently skips missing meds.",
+          "items": { "$ref": "#/$defs/UUID" }
+        }
+      }
+    },
+    "Vital": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "type", "value", "date"],
+      "properties": {
+        "id": { "$ref": "#/$defs/UUID" },
+        "type": {
+          "type": "string",
+          "enum": ["weight", "bloodPressure", "bloodSugar"]
+        },
+        "value": {
+          "type": "number",
+          "description": "weight = kg, bloodPressure = systolic, bloodSugar = mg/dL."
+        },
+        "value2": {
+          "type": ["number", "null"],
+          "description": "Diastolic for bloodPressure. Optional; KEY ABSENT when nil, explicit null tolerated on read. Display falls back to 0 when absent, rendering e.g. '120/0 mmHg'."
+        },
+        "date": { "$ref": "#/$defs/ISO8601Date" },
+        "notes": {
+          "type": ["string", "null"],
+          "description": "Optional; KEY ABSENT when nil, explicit null tolerated on read."
+        }
+      }
+    },
+    "Log": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "type", "description", "date", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/UUID" },
+        "type": {
+          "type": "string",
+          "description": "Free text. Only 'Medication Taken' is ever written by v0.0.19; filters compare against that literal."
+        },
+        "description": {
+          "type": "string",
+          "description": "markMedicationTaken writes '<med.name> Dose Taken'. Legacy isTaken matching does description.contains(med.name) against this string."
+        },
+        "date": { "$ref": "#/$defs/ISO8601Date" },
+        "source": {
+          "type": "string",
+          "description": "Only 'Manual Log' is ever written by v0.0.19."
+        },
+        "medicationId": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "NEW in 1.0, optional and additive. Written by markMedicationTaken going forward. When present it is authoritative for isTaken; when absent, fall back to the legacy description.contains(name) match. v0.0.19 ignores this key entirely, so files stay downgrade-readable."
+        }
+      }
+    },
+    "NotificationSettings": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Decoded via decodeIfPresent at the MedicalData level, but ONCE PRESENT all eight fields are required — NotificationSettings has a synthesized decoder and does not tolerate partial objects.",
+      "required": [
+        "allNotificationsEnabled",
+        "medicationsEnabled",
+        "appointmentsEnabled",
+        "consultationsEnabled",
+        "lowStockEnabled",
+        "lowStockThreshold",
+        "medicationReminderTime",
+        "appointmentReminderTime"
+      ],
+      "properties": {
+        "allNotificationsEnabled": { "type": "boolean" },
+        "medicationsEnabled": { "type": "boolean" },
+        "appointmentsEnabled": { "type": "boolean" },
+        "consultationsEnabled": { "type": "boolean" },
+        "lowStockEnabled": { "type": "boolean" },
+        "lowStockThreshold": {
+          "type": "integer",
+          "description": "Default 5. Settings picker offers 3 / 5 / 10. Alert fires when stock <= threshold. Per D8 the SAME predicate (active && stock <= lowStockThreshold) now drives the Today-row badge and Inventory tint, so badge and planner can no longer disagree."
+        },
+        "medicationReminderTime": { "$ref": "#/$defs/ReminderTime" },
+        "appointmentReminderTime": { "$ref": "#/$defs/ReminderTime" }
+      }
+    },
+    "ReminderTime": {
+      "type": "string",
+      "enum": ["At time of event", "5 minutes before", "1 hour before", "1 day before"],
+      "description": "Human-readable raw values, persisted verbatim. Offsets: 0 / -300 / -3600 / -86400 seconds."
+    }
+  }
+}

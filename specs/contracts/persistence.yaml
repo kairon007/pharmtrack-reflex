@@ -1,0 +1,94 @@
+# Persistence contract — the upgrade path from PharmTrack v0.0.19 to 1.0
+#
+# The live app stores user data on device. Getting this wrong loses medications,
+# appointments and vitals for existing users. This contract is the highest-risk
+# artifact in the migration.
+
+file:
+  name: medical_data.json
+  ios:
+    location: URL.documentsDirectory.appendingPathComponent("medical_data.json")
+    note: App sandbox Documents directory. Survives app upgrade, included in iCloud/iTunes backup.
+  android:
+    location: "<context.filesDir>/medical_data.json"
+    note: |
+      v0.0.19 resolves this via ProcessInfo.processInfo.androidContext.getFilesDir().
+      Reflex uses the real Context.filesDir. Same absolute path, so the upgrade finds the file.
+  rule: Both platforms MUST keep this exact filename and directory. Do not move to a database,
+        a subdirectory, or a versioned filename in 1.0.
+
+encoding:
+  format: JSON
+  dates: ISO8601, seconds precision, UTC "Z" (see medical_data.schema.json#/$defs/ISO8601Date)
+  uuid_case: uppercase on write, case-insensitive on read
+  nil_optionals: OMIT THE KEY. Swift's synthesized encode uses encodeIfPresent, so the legacy
+                 files never contain an explicit null. Writers must match that.
+  explicit_null_on_read: |
+    Tolerated for OPTIONAL fields: the synthesized decoder uses decodeIfPresent, which maps
+    JSON null to nil. So `"notes": null` on an Appointment decodes fine.
+    REJECTED for REQUIRED fields: a non-optional such as Consultation.notes or Medication.name
+    uses decode(), and null throws. Kotlin readers must reproduce this asymmetry rather than
+    treating every null as absent.
+  whitespace: irrelevant
+  key_order: irrelevant
+
+compatibility_guarantee:
+  # CORRECTION to REFLEX_MIGRATION_PLAN.md, which said "byte-compatible" / "byte-stable".
+  # That claim was too strong and is withdrawn.
+  byte_stability: NOT guaranteed and NOT required.
+  reason: |
+    JSONEncoder does not guarantee key ordering without .sortedKeys, and kotlinx.serialization
+    orders by declaration. Foundation and Kotlin will never produce identical bytes for the
+    same value. Asserting byte equality would fail for reasons that have nothing to do with
+    data loss.
+  actual_contract:
+    - Same file path on both platforms.
+    - Same schema, same date format, same nil-omission rule.
+    - Lossless semantic round-trip: decode(fixture) -> encode -> decode yields an equal value.
+    - Every field the legacy app wrote is still read by 1.0.
+    - Files written by 1.0 remain readable by v0.0.19 (downgrade safety), which is why
+      Log.medicationId is additive-optional rather than a schema break.
+  test: data_compat journey compares parsed values field-by-field, never raw bytes.
+
+leniency:
+  source: MedicalData.init(from:) uses decodeIfPresent for all six top-level keys.
+  behavior:
+    missing_collection: defaults to []
+    missing_notificationSettings: defaults to NotificationSettings() (all enabled, threshold 5)
+    unknown_key: ignored
+    partial_NotificationSettings: NOT tolerated — once the object is present all eight fields are required
+    malformed_json: throws; see error_handling
+  rule: Reflex decoders MUST reproduce this leniency exactly. A stricter decoder would
+        reject files the shipping app accepts.
+
+error_handling:
+  # Mirrors MedicalViewModel.load() @ 3887aa8b. The post-onboarding branch is deliberate:
+  # a parse error must NOT wipe real user data back to demo content.
+  load_returns_nil:
+    onboarding_incomplete: seed demo data, then persist
+    onboarding_complete: empty MedicalData
+  load_throws:
+    onboarding_incomplete: seed demo data, then persist
+    onboarding_complete: empty MedicalData, DO NOT seed, DO NOT overwrite the unreadable file
+  note: |
+    v0.0.19 only prints the error. Reflex should surface it in AppState so the UI can tell the
+    user their file could not be read, rather than silently showing an empty app. The
+    no-overwrite rule is the important part: leave the bad file on disk for recovery.
+
+key_value_store:
+  hasCompletedOnboarding:
+    type: Bool
+    default: false
+    ios: UserDefaults.standard
+    android: SharedPreferences
+    legacy_key: hasCompletedOnboarding
+    rule: |
+      Read the existing key on upgrade. Do not rename or namespace it — a user who already
+      finished onboarding must not see the demo tour again, and must not get demo data reseeded.
+
+additive_changes_in_1_0:
+  - field: Log.medicationId
+    kind: optional UUID
+    rationale: replaces description.contains(name) matching for isTaken
+    fallback: when absent, use the legacy string match (spec'd behavior, not a shim)
+    downgrade: v0.0.19 ignores the key

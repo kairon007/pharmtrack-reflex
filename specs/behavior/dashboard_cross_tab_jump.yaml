@@ -1,0 +1,249 @@
+schema: reflex/behavior/1
+id: dashboard_cross_tab_jump
+title: Jumping to the Calendar tab lands on the tapped appointment's day
+nodes: [dashboard, app_root, appointments, medication_tracker]
+evidence:
+  - Sources/SharedUI/Medical/DashboardView.swift:240-243
+  - Sources/SharedUI/Medical/DashboardView.swift:311-314
+  - Sources/SharedUI/Medical/DashboardView.swift:283-288
+  - Sources/SharedUI/Medical/MainTabView.swift:10
+  - Sources/SharedUI/Medical/MainTabView.swift:52-60
+  - Sources/SharedUI/Medical/AppointmentsView.swift:15-17
+decisions: [D11, D12]
+unpinned:
+  - "rendered date strings (D15)"
+
+# THE BUG FIX. MainTabView passed selectedAppointmentDate into AppointmentsView BY VALUE,
+# where it became State(initialValue:). Once the tab had been constructed, later writes to
+# the root date never reached it, so the jump landed on whatever day the tab first saw.
+# Reflex owns the date in app_root and the tab reads it live.
+
+cases:
+
+  - id: hero_card_jump_carries_the_date
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications: []
+    steps:
+      - expect:
+          - path: state.dashboard.heroBranch
+            equals: appointment
+          - path: state.app_root.selectedTab
+            equals: 0
+      - send: dashboard.tapHeroAppointment
+        args: { appointmentId: $seed_appointment_1 }
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 3
+          - path: state.app_root.selectedAppointmentDate
+            equals: "2026-11-07T14:30:00Z"
+          - path: state.appointments.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+          - path: state.appointments.visibleIds
+            equals: [$seed_appointment_1]
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 0
+      - note: Navigation is not a data mutation. Nothing is persisted.
+
+  - id: the_jump_works_after_the_tab_has_already_been_visited
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        appointments:
+          - id: "00000000-0000-4000-8000-0000000001A1"
+            doctorName: "Today Visit"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-07T16:00:00Z"
+            location: "L"
+            notify: true
+          - id: "00000000-0000-4000-8000-0000000001A2"
+            doctorName: "Next Week Visit"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-12T11:00:00Z"
+            location: "L"
+            notify: true
+    steps:
+      - send: app_root.selectTab
+        args: { index: 3 }
+      - expect:
+          - path: state.appointments.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+          - path: state.appointments.visibleIds
+            equals: ["00000000-0000-4000-8000-0000000001A1"]
+      - note: The tab is now constructed and showing today. This is the precondition the
+              legacy bug needed.
+      - send: app_root.selectTab
+        args: { index: 0 }
+      - send: dashboard.tapUpcomingRow
+        args: { appointmentId: "00000000-0000-4000-8000-0000000001A2" }
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 3
+          - path: state.app_root.selectedAppointmentDate
+            equals: "2026-11-12T11:00:00Z"
+          - path: state.appointments.selectedDate
+            equals: "2026-11-12T00:00:00Z"
+          - path: state.appointments.visibleIds
+            equals: ["00000000-0000-4000-8000-0000000001A2"]
+      - note: |
+          THE REGRESSION ASSERTION. Under v0.0.19 the tab kept its original 11-07 selection
+          and showed "Today Visit" — or nothing — after a jump to 11-12. The root date and
+          the tab's selected day must agree, normalized to startOfDay for the comparison.
+
+  - id: jumping_twice_lands_on_the_second_day
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        appointments:
+          - id: "00000000-0000-4000-8000-0000000001B1"
+            doctorName: "First"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-08T10:00:00Z"
+            location: "L"
+            notify: true
+          - id: "00000000-0000-4000-8000-0000000001B2"
+            doctorName: "Second"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-09T10:00:00Z"
+            location: "L"
+            notify: true
+    steps:
+      - send: dashboard.tapUpcomingRow
+        args: { appointmentId: "00000000-0000-4000-8000-0000000001B1" }
+      - expect:
+          - path: state.appointments.selectedDate
+            equals: "2026-11-08T00:00:00Z"
+      - send: app_root.selectTab
+        args: { index: 0 }
+      - send: dashboard.tapUpcomingRow
+        args: { appointmentId: "00000000-0000-4000-8000-0000000001B2" }
+      - expect:
+          - path: state.appointments.selectedDate
+            equals: "2026-11-09T00:00:00Z"
+          - path: state.appointments.visibleIds
+            equals: ["00000000-0000-4000-8000-0000000001B2"]
+
+  - id: the_jump_moves_the_week_strip_when_the_day_is_off_screen
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        appointments:
+          - id: "00000000-0000-4000-8000-0000000001C1"
+            doctorName: "Far Future"
+            specialty: "S"
+            type: "T"
+            date: "2026-12-20T10:00:00Z"
+            location: "L"
+            notify: true
+    steps:
+      - send: dashboard.tapUpcomingRow
+        args: { appointmentId: "00000000-0000-4000-8000-0000000001C1" }
+      - expect:
+          - path: state.appointments.selectedDate
+            equals: "2026-12-20T00:00:00Z"
+          - path: state.appointments.visibleIds
+            equals: ["00000000-0000-4000-8000-0000000001C1"]
+          - path: state.appointments.weekOffset
+            equals: 6
+      - note: |
+          43 days out / 7 = 6.14, rounds to 6, so the strip centers on 12-19 and the selected
+          day is visible. The legacy code never moved the strip because it never received
+          the date at all. This uses the same rounding rule as vitals_detail (D11).
+
+  - id: the_upcoming_header_jumps_without_changing_the_date
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: dashboard.tapUpcomingHeader
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 3
+          - path: state.app_root.selectedAppointmentDate
+            equals: $now
+          - path: state.appointments.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+      - note: DashboardView.swift:286 sets only the tab. The stored date keeps its prior
+              value, which defaults to now — so the header lands on today, not on the first
+              upcoming appointment.
+
+  - id: a_past_appointment_cannot_be_jumped_to_from_the_dashboard
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        medications: []
+    steps:
+      - expect:
+          - path: state.dashboard.upcomingAppointmentIds
+            not_contains: "$fixture:notification_matrix.appointments[3].id"
+      - send: dashboard.tapUpcomingRow
+        args: { appointmentId: "$fixture:notification_matrix.appointments[3].id" }
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 0
+          - path: state.app_root.selectedAppointmentDate
+            equals: $now
+      - note: Both jump sites are fed from upcomingAppointments, which filters date >= now,
+              so a past appointment is unreachable from the UI. A direct action carrying a
+              past id is a no-op rather than a navigation to an invisible row.
+
+  - id: view_all_routes_to_meds_history_not_vitals
+    divergence: D12
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: dashboard.tapRecentActivityViewAll
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 2
+          - path: state.medication_tracker.segment
+            equals: history
+      - send: app_root.selectTab
+        args: { index: 0 }
+      - send: dashboard.tapRecentActivityViewAll
+      - expect:
+          - path: state.app_root.selectedTab
+            equals: 2
+          - path: state.medication_tracker.segment
+            equals: history
+      - note: |
+          The second jump matters: if the user had left the Meds tab on Inventory, a
+          tab-only navigation would land on the wrong segment. One root action sets both.
+
+  - id: selecting_a_tab_directly_does_not_reset_the_appointment_date
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+      data:
+        appointments:
+          - id: "00000000-0000-4000-8000-0000000001D1"
+            doctorName: "Later"
+            specialty: "S"
+            type: "T"
+            date: "2026-11-12T10:00:00Z"
+            location: "L"
+            notify: true
+    steps:
+      - send: dashboard.tapUpcomingRow
+        args: { appointmentId: "00000000-0000-4000-8000-0000000001D1" }
+      - send: app_root.selectTab
+        args: { index: 4 }
+      - send: app_root.selectTab
+        args: { index: 3 }
+      - expect:
+          - path: state.appointments.selectedDate
+            equals: "2026-11-12T00:00:00Z"
+      - note: The root owns the date, so ordinary tab switching preserves it.

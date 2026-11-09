@@ -1,0 +1,371 @@
+schema: reflex/behavior/1
+id: notification_planner
+title: The pure planner — every gate, offset, past-date guard and threshold
+nodes: [app_root, appointments]
+evidence:
+  - Sources/PharmTrack/NotificationManager.swift:96-140
+  - Sources/PharmTrack/NotificationManager.swift:229-230
+  - Sources/PharmTrack/NotificationManager.swift:338-340
+  - reflex/specs/contracts/services.yaml#NotificationPlanner
+decisions: [D1, D8, D9]
+unpinned:
+  - "notification emission order — unordered_equals is mandatory (SCHEMA.md)"
+  - "rendered date strings (D15); triggerAt is an Instant, not a string"
+
+# The planner is pure: plan(data, now) -> [ScheduledNotification]. Setup (load: true) runs it
+# once against the fixture's settings, so most cases assert the planned set with no steps.
+# `given.settings` merges over the fixture's notificationSettings BEFORE setup, which is how
+# each matrix cell is selected. replaceCount reads 0 after setup (counters are zeroed) but the
+# set is live in `notifications`; the replan case at the end drives a second plan explicitly.
+#
+# Identifier grammar (services.yaml#ScheduledNotification): "med-<uuid>", "lowstock-<uuid>",
+# "appt-<uuid>", "consult-<uuid>". Copy is contract — both platforms emit identical strings.
+#
+# The three default-matrix notifications, repeated verbatim where a cell keeps them:
+#   med-...055     Future Dose      trigger 2026-11-07T18:00:00Z
+#   appt-...052    Future Notifying trigger 2026-11-09T12:00:00Z  (date 11-10 minus 1 day)
+#   consult-...059 Future Consult   trigger 2026-11-19T12:00:00Z  (date 11-20 minus 1 day)
+
+cases:
+
+  - id: default_matrix_plans_exactly_three
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "med-00000000-0000-4000-8000-000000000055"
+                channel: medication_reminders
+                title: "Medication Reminder"
+                body: "Time to take Future Dose (10mg). With Food"
+                triggerAt: "2026-11-07T18:00:00Z"
+              - identifier: "appt-00000000-0000-4000-8000-000000000052"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Future Notifying at West Wing."
+                triggerAt: "2026-11-09T12:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-19T12:00:00Z"
+          - path: ids.consumed
+            equals: 0
+      - note: |
+          Dropped at defaults: Soon Offset Killed (12:30 today, -24h trigger past), Future Muted
+          (notify false), Past Appointment; Past Dose (09:00), No Dose Scheduled (nil nextDose),
+          Inactive Future Dose (active false); Consult Inside Offset Window (-24h trigger past),
+          Past Consult. No low stock — every med holds 20. Planning consumes zero ids.
+
+  - id: master_switch_off_empties_the_set
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings: { allNotificationsEnabled: false }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals: []
+      - note: The master gate short-circuits every category regardless of the other flags.
+              NotificationManager.swift:96-98.
+
+  - id: medications_category_off
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings: { medicationsEnabled: false }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "appt-00000000-0000-4000-8000-000000000052"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Future Notifying at West Wing."
+                triggerAt: "2026-11-09T12:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-19T12:00:00Z"
+
+  - id: appointments_category_off
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings: { appointmentsEnabled: false }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "med-00000000-0000-4000-8000-000000000055"
+                channel: medication_reminders
+                title: "Medication Reminder"
+                body: "Time to take Future Dose (10mg). With Food"
+                triggerAt: "2026-11-07T18:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-19T12:00:00Z"
+      - note: appointmentsEnabled gates appointments ONLY. Consultations have their own flag
+              even though D9 makes them share the appointment reminder TIME.
+
+  - id: consultations_category_off
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings: { consultationsEnabled: false }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "med-00000000-0000-4000-8000-000000000055"
+                channel: medication_reminders
+                title: "Medication Reminder"
+                body: "Time to take Future Dose (10mg). With Food"
+                triggerAt: "2026-11-07T18:00:00Z"
+              - identifier: "appt-00000000-0000-4000-8000-000000000052"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Future Notifying at West Wing."
+                triggerAt: "2026-11-09T12:00:00Z"
+
+  - id: low_stock_alerts_at_and_below_threshold
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000022"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 5 doses left of At Threshold."
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000023"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 4 doses left of Below Threshold."
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000024"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 0 doses left of Zero Stock."
+      - note: |
+          Boundary is stock <= threshold, so stock == 5 DOES alert (D8). Above Threshold (6)
+          and Inactive Low Stock (active false) are excluded. Low-stock alerts are immediate:
+          triggerAt is nil and the key is OMITTED, never emitted as null.
+
+  - id: raising_threshold_adds_the_above_threshold_med
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+      settings: { lowStockThreshold: 10 }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000021"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 6 doses left of Above Threshold."
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000022"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 5 doses left of At Threshold."
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000023"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 4 doses left of Below Threshold."
+              - identifier: "lowstock-00000000-0000-4000-8000-000000000024"
+                channel: low_stock_alerts
+                title: "Low Medication Stock"
+                body: "You only have 0 doses left of Zero Stock."
+      - note: The inactive med (stock 1) stays excluded even though 1 <= 10. D8's active gate.
+
+  - id: low_stock_category_off
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+      settings: { lowStockEnabled: false }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals: []
+      - note: This fixture disables every other category, so the master-on / low-stock-off
+              cell isolates the lowStockEnabled gate to an empty set.
+
+  - id: at_time_offset_rescues_the_soon_visit
+    divergence: D9
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings: { appointmentReminderTime: "At time of event" }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "med-00000000-0000-4000-8000-000000000055"
+                channel: medication_reminders
+                title: "Medication Reminder"
+                body: "Time to take Future Dose (10mg). With Food"
+                triggerAt: "2026-11-07T18:00:00Z"
+              - identifier: "appt-00000000-0000-4000-8000-000000000051"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Soon Offset Killed at City Clinic."
+                triggerAt: "2026-11-07T12:30:00Z"
+              - identifier: "appt-00000000-0000-4000-8000-000000000052"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Future Notifying at West Wing."
+                triggerAt: "2026-11-10T12:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-20T12:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-00000000005A"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Consult Inside Offset Window."
+                triggerAt: "2026-11-08T06:00:00Z"
+      - note: |
+          With a zero offset the 12:30 appointment is 30 minutes out and survives the guard.
+          D9 is visible here: Consult Inside Offset Window (11-08T06:00) now schedules because
+          consultations read appointmentReminderTime. Legacy fixed -24h would still drop it.
+
+  - id: consultation_reads_the_appointment_setting
+    divergence: D9
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings:
+        medicationsEnabled: false
+        appointmentsEnabled: false
+        lowStockEnabled: false
+        consultationsEnabled: true
+        appointmentReminderTime: "5 minutes before"
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-20T11:55:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-00000000005A"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Consult Inside Offset Window."
+                triggerAt: "2026-11-08T05:55:00Z"
+      - note: |
+          THE D9 ISOLATION CELL. Only consultations enabled, offset -300s. Both triggers are
+          date minus 5 minutes and both are future. v0.0.19 ignored the setting and used a
+          fixed -86400s, which would emit one notification (Future Consult at 11-19T12:00)
+          and drop the second. There is still no consultation-specific time picker.
+
+  - id: medication_one_hour_before
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings: { medicationReminderTime: "1 hour before" }
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "med-00000000-0000-4000-8000-000000000055"
+                channel: medication_reminders
+                title: "Medication Reminder"
+                body: "Time to take Future Dose (10mg). With Food"
+                triggerAt: "2026-11-07T17:00:00Z"
+              - identifier: "appt-00000000-0000-4000-8000-000000000052"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Future Notifying at West Wing."
+                triggerAt: "2026-11-09T12:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-19T12:00:00Z"
+      - note: medicationReminderTime moves ONLY the medication trigger (18:00 -> 17:00). The
+              appointment and consultation offsets are governed by appointmentReminderTime.
+
+  - id: medication_one_day_before_kills_todays_dose
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      settings:
+        medicationReminderTime: "1 day before"
+        appointmentsEnabled: false
+        consultationsEnabled: false
+        lowStockEnabled: false
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals: []
+      - note: Future Dose is 18:00 TODAY; minus 24h its trigger is 11-06T18:00, already past.
+              Past Dose (09:00 today) is worse. The post-offset trigger > now guard empties
+              the medication category even though both doses are active with nextDose set.
+
+  - id: trigger_equal_to_now_is_dropped
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+      now: "2026-11-07T18:00:00Z"
+    steps:
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "appt-00000000-0000-4000-8000-000000000052"
+                channel: appointment_reminders
+                title: "Upcoming Appointment"
+                body: "You have an appointment with Future Notifying at West Wing."
+                triggerAt: "2026-11-09T12:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-19T12:00:00Z"
+      - note: At now == 18:00 the Future Dose trigger is EXACTLY now. The guard is strict
+              (trigger > now), so it is dropped, not scheduled for the current instant.
+
+  - id: deleting_an_appointment_replans_the_full_set
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: notifications
+            count: 3
+          - path: notifications.replaceCount
+            equals: 0
+      - send: appointments.delete
+        args: { appointmentId: "$fixture:notification_matrix.appointments[1].id" }
+      - flush: all
+      - expect:
+          - path: notifications
+            unordered_equals:
+              - identifier: "med-00000000-0000-4000-8000-000000000055"
+                channel: medication_reminders
+                title: "Medication Reminder"
+                body: "Time to take Future Dose (10mg). With Food"
+                triggerAt: "2026-11-07T18:00:00Z"
+              - identifier: "consult-00000000-0000-4000-8000-000000000059"
+                channel: consultation_reminders
+                title: "Upcoming Consultation"
+                body: "You have a consultation with Future Consult."
+                triggerAt: "2026-11-19T12:00:00Z"
+          - path: notifications.replaceCount
+            equals: 1
+          - path: store.writeCount
+            equals: 1
+      - note: |
+          D1. A mutation replans from the committed data and hands replaceAll the COMPLETE
+          desired set — the deleted appointment's notification is gone because it is absent
+          from the new set, not because a delta cancelled it. Setup's plan was zeroed, so the
+          single delete accounts for exactly one replaceAll and one write.

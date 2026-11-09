@@ -1,0 +1,433 @@
+schema: reflex/behavior/1
+id: vitals_detail_navigation
+title: Metric x range x week offset x selected day x highlight
+nodes: [vitals_detail, vitals, add_vital]
+evidence:
+  - Sources/SharedUI/Medical/AllVitalsView.swift:10-47
+  - Sources/SharedUI/Medical/AllVitalsView.swift:198-287
+  - Sources/SharedUI/Medical/AllVitalsView.swift:423-439
+  - Sources/SharedUI/Medical/AllVitalsView.swift:485-498
+  - Sources/SharedUI/Medical/AllVitalsView.swift:559-565
+  - Sources/SharedUI/Medical/VitalsView.swift:357-383
+decisions: [D2, D11, D14, D16]
+unpinned:
+  - "rendered month header and weekday letters (D15)"
+  - "chart pixel geometry — DynamicChartPath stays in the UI layer"
+  - "highlight duration (D2)"
+
+# The heaviest machine. Five interacting state axes, and the legacy code deliberately does
+# NOT reset the dependent ones. Every "not reset" assertion below is intentional (D11).
+#
+# Reference data, bp_composite.json, now = 2026-11-07T12:00:00Z:
+#   weight        80.0 @ 08-09T12:00Z (exactly 90 days back)
+#                 78.2 @ 10-31T12:00Z (exactly 7 days back)
+#                 75.5 @ 11-06T12:00Z
+#                 75.5 @ 11-07T08:00Z
+#   bloodPressure 120/80 @ 11-06T12:00Z, 130/- @ 11-07T09:00Z
+#   bloodSugar    0 @ 11-05T12:00Z, 95 @ 11-07T10:00Z
+
+cases:
+
+  - id: initial_state
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - expect:
+          - path: state.vitals_detail.metric
+            equals: weight
+          - path: state.vitals_detail.range
+            equals: week
+          - path: state.vitals_detail.weekOffset
+            equals: 0
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+          - path: state.vitals_detail.highlightedVitalId
+            is_null: true
+          - path: state.vitals_detail.totalCount
+            equals: 3
+
+  - id: seven_day_cutoff_is_inclusive_and_rolling
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - expect:
+          - path: state.vitals_detail.cutoff
+            equals: "2026-10-31T12:00:00Z"
+          - path: state.vitals_detail.filteredVitals
+            equals:
+              - "$fixture:bp_composite.vitals[0].id"
+              - "$fixture:bp_composite.vitals[1].id"
+              - "$fixture:bp_composite.vitals[2].id"
+          - path: state.vitals_detail.totalCount
+            equals: 3
+      - note: |
+          Two rules in one assertion. The cutoff is now minus 7*86400 as a ROLLING INSTANT
+          (12:00, not midnight), and the comparison is >= so the reading exactly on the
+          boundary is INCLUDED. A startOfDay cutoff or a > comparison both change this count.
+
+  - id: thirty_day_range
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectRange
+        args: { range: month }
+      - expect:
+          - path: state.vitals_detail.cutoff
+            equals: "2026-10-08T12:00:00Z"
+          - path: state.vitals_detail.totalCount
+            equals: 3
+
+  - id: ninety_day_boundary_includes_the_exact_edge
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectRange
+        args: { range: quarter }
+      - expect:
+          - path: state.vitals_detail.cutoff
+            equals: "2026-08-09T12:00:00Z"
+          - path: state.vitals_detail.totalCount
+            equals: 4
+          - path: state.vitals_detail.chartValues
+            equals: [80.0, 78.2, 75.5, 75.5]
+
+  - id: all_range_has_no_cutoff
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectRange
+        args: { range: all }
+      - expect:
+          - path: state.vitals_detail.cutoff
+            is_null: true
+          - path: state.vitals_detail.totalCount
+            equals: 4
+
+  - id: the_two_screens_disagree_on_series_length
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: weight }
+      - send: vitals.openDetail
+      - expect:
+          - path: state.vitals.recentIds
+            count: 4
+          - path: state.vitals_detail.totalCount
+            equals: 3
+      - note: Q18. Same data, same metric, different series — the tab has no cutoff, the
+              detail screen defaults to 7 days. Preserved, not unified.
+
+  - id: changing_metric_does_not_reset_range_week_or_selection
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectRange
+        args: { range: quarter }
+      - send: vitals_detail.nextWeek
+      - send: vitals_detail.selectDay
+        args: { date: "2026-11-12T00:00:00Z" }
+      - send: vitals_detail.selectMetric
+        args: { metric: bloodSugar }
+      - expect:
+          - path: state.vitals_detail.range
+            equals: quarter
+          - path: state.vitals_detail.weekOffset
+            equals: 1
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-11-12T00:00:00Z"
+          - path: state.vitals_detail.selectedDayIds
+            equals: []
+      - note: D11 / AllVitalsView.swift:141-142. The selected day survives even though it is
+              outside the visible strip and has no readings for the new metric.
+
+  - id: blood_pressure_charts_systolic_only
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectMetric
+        args: { metric: bloodPressure }
+      - expect:
+          - path: state.vitals_detail.chartValues
+            equals: [120, 130]
+          - path: state.vitals_detail.chartMin
+            equals: 120
+          - path: state.vitals_detail.chartMax
+            equals: 130
+          - path: state.vitals_detail.formattedValue
+            equals: "130/0 mmHg"
+          - path: state.vitals_detail.trend.direction
+            equals: up
+          - path: state.vitals_detail.trend.sentiment
+            equals: bad
+      - note: value2 is never charted. The missing diastolic still renders "/0" (D14), and
+              the unit appears once — the legacy detail screen rendered "130/0 mmHg mmHg".
+
+  - id: day_window_is_a_rolling_seven_cell_strip
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - expect:
+          - path: state.vitals_detail.stripCenter
+            equals: "2026-11-07T00:00:00Z"
+          - path: state.vitals_detail.stripDates
+            equals:
+              - "2026-11-04T00:00:00Z"
+              - "2026-11-05T00:00:00Z"
+              - "2026-11-06T00:00:00Z"
+              - "2026-11-07T00:00:00Z"
+              - "2026-11-08T00:00:00Z"
+              - "2026-11-09T00:00:00Z"
+              - "2026-11-10T00:00:00Z"
+          - path: state.vitals_detail.stripDotDates
+            equals: ["2026-11-06T00:00:00Z", "2026-11-07T00:00:00Z"]
+      - note: D11. No weekday anchor — 2026-11-04 is a Wednesday and the strip starts there
+              because it is center minus three, not because of a calendar week.
+
+  - id: paging_is_unbounded_in_both_directions
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.previousWeek
+      - expect:
+          - path: state.vitals_detail.weekOffset
+            equals: -1
+          - path: state.vitals_detail.stripCenter
+            equals: "2026-10-31T00:00:00Z"
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+      - send: vitals_detail.previousWeek
+      - send: vitals_detail.previousWeek
+      - send: vitals_detail.previousWeek
+      - expect:
+          - path: state.vitals_detail.weekOffset
+            equals: -4
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+      - note: No clamp, no disabled arrow, and the selection is left pointing at a day that
+              is no longer on screen. D11.
+
+  - id: selected_day_list_is_oldest_first
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectDay
+        args: { date: "2026-11-06T00:00:00Z" }
+      - expect:
+          - path: state.vitals_detail.selectedDayIds
+            equals: ["$fixture:bp_composite.vitals[1].id"]
+          - path: state.vitals_detail.selectedDayCount
+            equals: 1
+          - path: state.vitals_detail.allReadingIds
+            equals:
+              - "$fixture:bp_composite.vitals[2].id"
+              - "$fixture:bp_composite.vitals[1].id"
+              - "$fixture:bp_composite.vitals[0].id"
+      - note: The two lists order OPPOSITE ways — selected-day ascending, all-readings
+              descending. AllVitalsView.swift:587-589 vs :484.
+
+  - id: empty_day_and_empty_metric
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectDay
+        args: { date: "2026-11-04T00:00:00Z" }
+      - expect:
+          - path: state.vitals_detail.selectedDayIds
+            equals: []
+          - path: state.vitals_detail.selectedDayCount
+            equals: 0
+          - path: state.vitals_detail.totalCount
+            equals: 3
+      - note: An empty day does not empty the chart — the chart follows the range, not the day.
+
+  - id: empty_series_has_no_chart_bounds
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - expect:
+          - path: state.vitals_detail.chartValues
+            equals: []
+          - path: state.vitals_detail.chartMin
+            is_null: true
+          - path: state.vitals_detail.chartMax
+            is_null: true
+          - path: state.vitals_detail.formattedValue
+            equals: "--"
+          - path: state.vitals_detail.trend
+            is_null: true
+
+  - id: single_point_series_still_has_bounds
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "75.5" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-07T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openDetail
+      - expect:
+          - path: state.vitals_detail.chartValues
+            equals: [75.5]
+          - path: state.vitals_detail.chartMin
+            equals: 75.5
+          - path: state.vitals_detail.chartMax
+            equals: 75.5
+          - path: state.vitals_detail.trend
+            is_null: true
+      - note: min == max. The UI maps that to a flat mid-height line; the geometry itself is
+              out of scope, but the equal bounds are what drives it.
+
+  - id: highlight_set_then_cleared
+    divergence: D2
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.tapReading
+        args: { vitalId: "$fixture:bp_composite.vitals[2].id" }
+      - expect:
+          - path: state.vitals_detail.highlightedVitalId
+            equals: "$fixture:bp_composite.vitals[2].id"
+      - flush: scheduler
+      - expect:
+          - path: state.vitals_detail.highlightedVitalId
+            is_null: true
+      - note: Eventual state only. The 0.9s is never asserted.
+
+  - id: a_stale_clear_message_does_not_clear_a_newer_highlight
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.tapReading
+        args: { vitalId: "$fixture:bp_composite.vitals[0].id" }
+      - send: vitals_detail.tapReading
+        args: { vitalId: "$fixture:bp_composite.vitals[2].id" }
+      - deliver: vitals_detail.highlightClearFired
+        args: { vitalId: "$fixture:bp_composite.vitals[0].id" }
+      - expect:
+          - path: state.vitals_detail.highlightedVitalId
+            equals: "$fixture:bp_composite.vitals[2].id"
+      - deliver: vitals_detail.highlightClearFired
+        args: { vitalId: "$fixture:bp_composite.vitals[2].id" }
+      - expect:
+          - path: state.vitals_detail.highlightedVitalId
+            is_null: true
+      - note: |
+          AllVitalsView.swift:437 guards the clear with `highlightedVitalID == vital.id`.
+          Delivering the messages by hand is the only way to observe that guard without
+          asserting wall-clock timing. Re-tapping the SAME row lets the earlier timer clear
+          it early in the legacy app; that race is not contract.
+
+  - id: tapping_an_all_readings_row_moves_the_day_and_the_week
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.selectRange
+        args: { range: all }
+      - send: vitals_detail.tapReading
+        args: { vitalId: "$fixture:bp_composite.vitals[0].id" }
+      - expect:
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-10-31T00:00:00Z"
+          - path: state.vitals_detail.weekOffset
+            equals: -1
+          - path: state.vitals_detail.highlightedVitalId
+            equals: "$fixture:bp_composite.vitals[0].id"
+      - note: -7 days / 7 = -1 exactly. AllVitalsView.swift:488 -> :559-565.
+
+  - id: week_offset_rounding_is_nearest_not_truncated
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "70" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-03T09:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openDetail
+      - send: vitals_detail.tapReading
+        args: { vitalId: "$1" }
+      - expect:
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-11-03T00:00:00Z"
+          - path: state.vitals_detail.weekOffset
+            equals: -1
+      - note: |
+          -4 days / 7 = -0.571, which ROUNDS to -1. Truncation would give 0 and leave the
+          tapped day off screen. Kotlin's roundToInt and Swift's .rounded() agree here;
+          a floor or an Int() cast would not.
+
+  - id: three_days_back_rounds_to_the_current_week
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "70" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-04T09:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openDetail
+      - send: vitals_detail.tapReading
+        args: { vitalId: "$1" }
+      - expect:
+          - path: state.vitals_detail.weekOffset
+            equals: 0
+      - note: -3 / 7 = -0.4286 -> 0. The boundary between the two outcomes is four days.
+
+  - id: tapping_a_day_cell_does_not_change_the_week_offset
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openDetail
+      - send: vitals_detail.previousWeek
+      - send: vitals_detail.selectDay
+        args: { date: "2026-11-07T00:00:00Z" }
+      - expect:
+          - path: state.vitals_detail.weekOffset
+            equals: -1
+          - path: state.vitals_detail.selectedDate
+            equals: "2026-11-07T00:00:00Z"
+      - note: syncWeekOffsetToDate is called ONLY from the all-readings row tap, never from
+              a day-cell tap. AllVitalsView.swift:258-261 vs :488.

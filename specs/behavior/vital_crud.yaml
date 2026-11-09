@@ -1,0 +1,576 @@
+schema: reflex/behavior/1
+id: vital_crud
+title: Add, edit and delete vitals; validation, formatting, icons and trend
+nodes: [vitals, add_vital, app_root]
+evidence:
+  - Sources/SharedUI/Medical/AddVitalView.swift:138-202
+  - Sources/SharedUI/Medical/VitalsView.swift:19-72
+  - Sources/SharedUI/Medical/VitalsView.swift:275-327
+  - Sources/AppModel/MedicalViewModel.swift:153-156
+  - Sources/AppModel/MedicalViewModel.swift:186-191
+  - Sources/AppModel/MedicalViewModel.swift:214-219
+decisions: [D4, D10, D14, D16]
+unpinned:
+  - "rendered date strings (D15)"
+
+cases:
+
+  - id: add_weight
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setType
+        args: { type: weight }
+      - expect:
+          - path: state.add_vital.canSave
+            equals: false
+          - path: state.add_vital.value2Visible
+            equals: false
+      - send: add_vital.setValueText
+        args: { text: "76.2" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-07T08:00:00Z" }
+      - send: add_vital.setNotes
+        args: { text: "Morning weigh-in" }
+      - expect:
+          - path: state.add_vital.canSave
+            equals: true
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals.count
+            equals: 1
+          - path: data.vitals[0].id
+            equals: $1
+          - path: data.vitals[0].type
+            equals: weight
+          - path: data.vitals[0].value
+            equals: 76.2
+          - path: data.vitals[0].value2
+            is_null: true
+          - path: data.vitals[0].notes
+            equals: "Morning weigh-in"
+          - path: ids.consumed
+            equals: 1
+          - path: state.vitals.formMode
+            equals: closed
+          - path: state.vitals.formattedValue
+            equals: "76.2 kg"
+          - path: state.vitals.rowIcon[$1]
+            equals: weight
+          - path: store.writeCount
+            equals: 1
+          - path: data.logs.count
+            equals: 0
+      - note: Adding a vital writes NO log entry. Only markTaken does.
+
+  - id: add_blood_pressure_with_both_values
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setType
+        args: { type: bloodPressure }
+      - expect:
+          - path: state.add_vital.value2Visible
+            equals: true
+          - path: state.add_vital.unit
+            equals: mmHg
+      - send: add_vital.setValueText
+        args: { text: "120.7" }
+      - send: add_vital.setValue2Text
+        args: { text: "80.9" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.selectMetric
+        args: { metric: bloodPressure }
+      - expect:
+          - path: data.vitals[0].value
+            equals: 120.7
+          - path: data.vitals[0].value2
+            equals: 80.9
+          - path: state.vitals.formattedValue
+            equals: "120/80 mmHg"
+          - path: state.vitals.rowIcon[$1]
+            equals: blood_pressure
+      - note: Int() truncates toward zero, it does not round. 120.7 -> 120, 80.9 -> 80.
+
+  - id: blood_pressure_without_diastolic_falls_back_to_zero
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setType
+        args: { type: bloodPressure }
+      - send: add_vital.setValueText
+        args: { text: "130" }
+      - expect:
+          - path: state.add_vital.canSave
+            equals: true
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.selectMetric
+        args: { metric: bloodPressure }
+      - expect:
+          - path: data.vitals[0].value2
+            is_null: true
+          - path: state.vitals.formattedValue
+            equals: "130/0 mmHg"
+      - note: value2 is never required. "/0" is the documented legacy fallback, not a crash,
+              and D14 keeps it. Asserted so neither platform "helpfully" hides the row.
+
+  - id: add_blood_sugar_formats_as_an_integer
+    divergence: D14
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setType
+        args: { type: bloodSugar }
+      - send: add_vital.setValueText
+        args: { text: "118.6" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.selectMetric
+        args: { metric: bloodSugar }
+      - expect:
+          - path: data.vitals[0].value
+            equals: 118.6
+          - path: state.vitals.formattedValue
+            equals: "119 mg/dL"
+          - path: state.vitals.rowIcon[$1]
+            equals: blood_sugar
+      - note: |
+          D14 unifies sugar at %.0f. The Vitals tab previously showed "118.6 mg/dL"
+          (VitalsView.swift:166, :325) while Vitals Detail showed "119" (AllVitalsView.swift:657).
+          The stored value keeps full precision; only the display rounds. The unit appears
+          exactly once — the detail screen used to render "119 mg/dL mg/dL".
+
+  - id: empty_value_blocks_save
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setType
+        args: { type: weight }
+      - expect:
+          - path: state.add_vital.canSave
+            equals: false
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals.count
+            equals: 0
+          - path: ids.consumed
+            equals: 0
+          - path: store.writeCount
+            equals: 0
+
+  - id: unparseable_value_is_a_silent_noop
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "   " }
+      - expect:
+          - path: state.add_vital.canSave
+            equals: true
+      - note: Q7. The gate is isEmpty WITHOUT trimming, so whitespace passes it.
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals.count
+            equals: 0
+          - path: state.vitals.formMode
+            equals: add
+          - path: ids.consumed
+            equals: 0
+          - path: store.writeCount
+            equals: 0
+      - send: add_vital.setValueText
+        args: { text: "abc" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals.count
+            equals: 0
+          - path: state.vitals.formMode
+            equals: add
+      - note: |
+          No error is surfaced and the modal stays open. This is a poor experience but it is
+          the shipping behavior and D13 deliberately did not unify the three legacy form
+          gates. Flagged REVIEW_AT_FREEZE in decisions.yaml#D13.preserved_asymmetry.
+
+  - id: negative_and_zero_values_are_accepted
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "-5" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals.count
+            equals: 1
+          - path: data.vitals[0].value
+            equals: -5
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "0" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals.count
+            equals: 2
+      - note: No plausibility validation exists. Q7.
+
+  - id: switching_type_does_not_clear_the_diastolic_buffer
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setType
+        args: { type: bloodPressure }
+      - send: add_vital.setValue2Text
+        args: { text: "80" }
+      - send: add_vital.setType
+        args: { type: weight }
+      - expect:
+          - path: state.add_vital.value2Visible
+            equals: false
+          - path: state.add_vital.value2Text
+            equals: "80"
+      - send: add_vital.setValueText
+        args: { text: "76" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals[0].value2
+            is_null: true
+      - note: AddVitalView.swift:146 sets only `type`. The stale buffer is ignored, not cleared.
+
+  - id: new_readings_insert_at_the_front_of_storage
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "70" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-01T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "80" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-05T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals[0].value
+            equals: 80
+          - path: data.vitals[1].value
+            equals: 70
+          - path: state.vitals.latestReadingId
+            equals: $2
+          - path: state.vitals.recentIds
+            equals: [$2, $1]
+      - note: Q16. Storage order is newest-ADDED-first; display order is by date. Here they
+              agree, so the next case separates them.
+
+  - id: display_order_is_by_date_not_by_insertion
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "80" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-05T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "70" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-01T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals[0].value
+            equals: 70
+          - path: state.vitals.latestReadingId
+            equals: $1
+          - path: state.vitals.formattedValue
+            equals: "80.0 kg"
+          - path: state.vitals.recentIds
+            equals: [$1, $2]
+      - note: The backdated reading is first in storage but last in the ascending display
+              series, so the card still shows the newer-by-date value.
+
+  - id: delete_is_immediate_and_persists
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: weight }
+      - expect:
+          - path: state.vitals.recentIds
+            not_equals: []
+      - send: vitals.delete
+        args: { vitalId: "$fixture:bp_composite.vitals[0].id" }
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 1
+          - path: data.vitals[id=$fixture:bp_composite.vitals[0].id]
+            is_null: true
+      - note: No confirmation dialog and no undo. VitalsView.swift:307-309.
+
+  - id: deleting_an_absent_vital_id_does_not_write
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.delete
+        args: { vitalId: "00000000-0000-4000-8000-00000000FFFF" }
+      - flush: all
+      - expect:
+          - path: store.writeCount
+            equals: 0
+      - note: MedicalViewModel.swift:186-191 saves only when the id was found.
+
+  - id: edit_a_vital_in_place
+    divergence: D10
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openEdit
+        args: { vitalId: "$fixture:bp_composite.vitals[0].id" }
+      - expect:
+          - path: state.add_vital.mode
+            equals: edit
+          - path: state.add_vital.editingId
+            equals: "$fixture:bp_composite.vitals[0].id"
+          - path: state.add_vital.valueText
+            equals: "78.2"
+          - path: state.add_vital.type
+            equals: weight
+          - path: state.add_vital.date
+            equals: "2026-10-31T12:00:00Z"
+          - path: state.add_vital.notesText
+            equals: "Baseline"
+      - send: add_vital.setValueText
+        args: { text: "99.9" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: data.vitals[id=$fixture:bp_composite.vitals[0].id].value
+            equals: 99.9
+          - path: data.vitals[0].id
+            equals: "$fixture:bp_composite.vitals[0].id"
+          - path: ids.consumed
+            equals: 0
+          - path: store.writeCount
+            equals: 1
+          - path: state.vitals.formMode
+            equals: closed
+      - note: |
+          NEW IN 1.0. updateVital existed at MedicalViewModel.swift:214-219 with zero call
+          sites. Replace by id, storage position preserved, no re-sort, no id consumed.
+
+  - id: cancelling_an_edit_discards_the_draft
+    divergence: D10
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openEdit
+        args: { vitalId: "$fixture:bp_composite.vitals[0].id" }
+      - send: add_vital.setValueText
+        args: { text: "12345" }
+      - send: add_vital.cancel
+      - flush: all
+      - expect:
+          - path: data.vitals[id=$fixture:bp_composite.vitals[0].id].value
+            equals: 78.2
+          - path: store.writeCount
+            equals: 0
+          - path: state.vitals.formMode
+            equals: closed
+
+  - id: row_icon_derives_from_type
+    divergence: D4
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: weight }
+      - expect:
+          - path: state.vitals.rowIcon[$fixture:bp_composite.vitals[0].id]
+            equals: weight
+      - send: vitals.selectMetric
+        args: { metric: bloodPressure }
+      - expect:
+          - path: state.vitals.rowIcon[$fixture:bp_composite.vitals[3].id]
+            equals: blood_pressure
+      - send: vitals.selectMetric
+        args: { metric: bloodSugar }
+      - expect:
+          - path: state.vitals.rowIcon[$fixture:bp_composite.vitals[6].id]
+            equals: blood_sugar
+      - note: |
+          v0.0.19 hardcoded "scalemass" on every Vitals tab row (VitalsView.swift:285) while
+          AllVitalsView derived it correctly (:661-666). The semantic names resolve through
+          contracts/icons.yaml; the assertion is on the semantic name, not the SF Symbol.
+
+  - id: trend_needs_two_readings
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "70" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: state.vitals.trend
+            is_null: true
+
+  - id: trend_is_nil_when_the_previous_value_is_zero
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "0" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-01T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "70" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-05T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: state.vitals.trend
+            is_null: true
+      - note: Guarded division, not an infinity. VitalsView.swift:57.
+
+  - id: trend_direction_and_sentiment
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "80" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-01T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - send: vitals.openAdd
+      - send: add_vital.setValueText
+        args: { text: "76" }
+      - send: add_vital.setDate
+        args: { date: "2026-11-05T08:00:00Z" }
+      - send: add_vital.save
+      - flush: all
+      - expect:
+          - path: state.vitals.trend.direction
+            equals: down
+          - path: state.vitals.trend.sentiment
+            equals: good
+          - path: state.vitals.trend.magnitude
+            equals: "5.0%"
+      - note: Q17. A decrease is "good" for every metric, including blood sugar. Preserved.
+
+  - id: flat_trend_branch
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: weight }
+      - expect:
+          - path: state.vitals.trend.direction
+            equals: flat
+          - path: state.vitals.trend.sentiment
+            equals: neutral
+          - path: state.vitals.trend.magnitude
+            equals: "0.0%"
+          - path: state.vitals.formattedValue
+            equals: "75.5 kg"
+      - note: The ascending weight series ends 75.5 (11-06) then 75.5 (11-07), so the last
+              two are equal. VitalsView.swift:70.
+
+  - id: sugar_trend_is_nil_on_a_zero_previous_value
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: bloodSugar }
+      - expect:
+          - path: state.vitals.trend
+            is_null: true
+          - path: state.vitals.formattedValue
+            equals: "95 mg/dL"
+      - note: The series is 0 (11-05) then 95 (11-07). Guarded division returns nil, not infinity.
+
+  - id: vitals_tab_trend_ignores_the_time_range
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: weight }
+      - expect:
+          - path: state.vitals.recentIds
+            count: 4
+          - path: state.vitals.trend.direction
+            equals: flat
+      - note: |
+          Q18. All four weight readings are in scope here, including the one 90 days back,
+          because this screen applies no cutoff. vitals_detail_navigation asserts the same
+          data under a 7-day range and gets a different series. The divergence between the
+          two screens is real and is preserved.
+
+  - id: empty_state_per_metric
+    given:
+      fixture: empty
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: vitals.selectMetric
+        args: { metric: bloodSugar }
+      - expect:
+          - path: state.vitals.recentIds
+            equals: []
+          - path: state.vitals.latestReadingId
+            is_null: true
+          - path: state.vitals.formattedValue
+            equals: "--"
+          - path: state.vitals.trend
+            is_null: true

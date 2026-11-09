@@ -1,0 +1,683 @@
+# Machine registry — the 14 MVVM-U nodes.
+#
+# This is the interface Phase 2 (Swift) and Phase 3 (Kotlin) implement independently.
+# Journeys may only reference nodes, state fields and actions declared here.
+#
+# Shape of every machine:
+#   State   — immutable value. No services, no closures, no platform types.
+#   Action  — synchronous user intent. Dispatched by the UI. Never async.
+#   Message — asynchronous result of an effect. Emitted by a service adapter.
+#   update(State, Action|Message) -> (State, [Effect])
+#
+# `derived` fields are pure functions of app_root.data plus the node's own state. They are
+# listed because journeys assert them, but an implementation may compute them as selectors
+# rather than store them. They MUST appear in the emitted state JSON either way.
+
+schema: reflex/nodes/1
+
+conventions:
+  entity_ids: Entities arrive at reducers with ids already assigned by the effect that
+              services the action. Core never calls UUID() (services.yaml#IDGenerator).
+  instants: Every date is an Instant. No Date(), no LocalDateTime, no timezone ambiguity.
+            "Today" resolves in the zone pinned by determinism.yaml#clock.timezone.
+  enums: Stringly-typed legacy state becomes enums. Raw values that are PERSISTED keep their
+         legacy spelling exactly (Medication.schedule, ReminderTime, VitalType).
+  errors: Reducers do not throw. Failure arrives as a Message and lands in State.
+  sort: Every ordering uses (date ascending, id ascending) per D16.
+  derived_collections: |
+    A derived field whose name ends in Ids, or that names a set of entities
+    (filteredVitals, filteredMedications, recentIds, visibleIds, ...), is an array of
+    entity UUIDs in the stated order — never whole entities. todayGroups is a map from
+    the persisted schedule string to a UUID array. chartValues is the exception: an
+    array of Doubles.
+
+nodes:
+
+  app_root:
+    kind: root
+    replaces: [MainTabView, ContentView, MedicalViewModel.load]
+    owns: The single MedicalData. Every other node reads it; only app_root messages mutate it.
+    state:
+      loadPhase: { type: enum, values: [idle, loading, loaded, unreadable], initial: idle }
+      loadError: { type: "String?", initial: null }
+      data: { type: MedicalData, initial: "MedicalData()" }
+      selectedTab: { type: Int, initial: 0, range: "0...4" }
+      selectedAppointmentDate: { type: Instant, initial: "clock.now" }
+      hasCompletedOnboarding: { type: Bool, initial: false }
+      settingsPresented: { type: Bool, initial: false }
+    derived:
+      isOnboarding: "!hasCompletedOnboarding"
+    actions:
+      onAppear: {}
+      selectTab: { index: Int }
+      jumpToAppointment: { appointmentId: UUID }
+      jumpToMedicationHistory: {}
+      presentSettings: {}
+      dismissSettings: {}
+      commitData: { data: MedicalData, reason: enum, reason_values: [add, update, delete, markTaken, settings, seed] }
+    messages:
+      storeLoaded: { data: "MedicalData?" }
+      storeLoadFailed: { error: String }
+      storeSaved: {}
+      storeSaveFailed: { error: String }
+      storeCleared: {}
+      onboardingFlagRead: { value: Bool }
+    effects:
+      - "onAppear -> kv.bool(hasCompletedOnboarding), store.load()"
+      - "commitData -> store.save(data), then NotificationPlanner.plan and scheduler.replaceAll"
+      - "jumpToAppointment -> selectedTab = 3, selectedAppointmentDate = that appointment's date"
+      - "jumpToMedicationHistory -> selectedTab = 2, medication_tracker.segment = history (D12)"
+    rules:
+      - id: load_branches
+        from: MedicalViewModel.swift:21-44, persistence.yaml#error_handling
+        table:
+          - { store: nil,   onboarding: false, result: seed demo, persist: true }
+          - { store: nil,   onboarding: true,  result: empty MedicalData, persist: false }
+          - { store: throws, onboarding: false, result: seed demo, persist: true }
+          - { store: throws, onboarding: true,  result: empty MedicalData, persist: false, leave_file: true }
+        note: The unreadable-file branch sets loadPhase = unreadable and loadError so the UI
+              can say so. v0.0.19 only printed. It must NOT overwrite the bad file.
+      - id: tab_order
+        from: MainTabView.swift:21-71
+        value: "0 Home / 1 Consults / 2 Meds / 3 Calendar / 4 Vitals"
+      - id: settings_is_not_a_tab
+        from: DashboardView.swift:127-132
+        value: Settings is a modal presented from the dashboard bell, not a sixth tab.
+
+  onboarding:
+    kind: overlay
+    replaces: [OnboardingOverlay in MainTabView, the 3.5s and 0.1s sleeps]
+    state:
+      visible: { type: Bool, initial: false }
+      step: { type: Int, initial: 0, range: "0...4" }
+      clearing: { type: Bool, initial: false }
+    derived:
+      promptText: 'step < 4 ? "Ready for the next one?" : "Ready to use the app?"'
+      buttonText: 'step < 4 ? "Next" : "Get Started"'
+      subtitle: '"Swipe or tap below to explore"'
+    actions:
+      next: {}
+      getStarted: {}
+      tabChanged: {}
+    messages:
+      revealFired: {}
+      clearCompleted: {}
+      clearFailed: { error: String }
+    effects:
+      - "app_root.loadPhase == loaded && isOnboarding -> scheduler.after(3.5, revealFired)"
+      - "tabChanged -> visible = false, scheduler.after(3.5, revealFired)"
+      - "next -> step += 1, app_root.selectTab(step)"
+      - "getStarted -> clearing = true, store.clear()"
+      - "clearCompleted -> data = MedicalData(), kv.setBool(hasCompletedOnboarding, true), visible = false"
+    rules:
+      - id: no_sleep_after_clear
+        from: MainTabView.swift:84-89
+        value: The 0.1s sleep is deleted. The flag is written on clearCompleted, not after a delay.
+      - id: flag_order
+        value: store.clear completes BEFORE the flag is written. A failed clear does not set the flag.
+      - id: five_steps_two_texts
+        from: MainTabView.swift:76-77
+        value: Q15. Five tab positions, two text variants. Do not invent per-step copy.
+      - id: overlay_dismissal
+        from: MainTabView.swift:74
+        value: The overlay gate is isOnboarding && visible. Completing flips isOnboarding,
+               so visible is never explicitly cleared by the legacy code. Reflex clears both.
+
+  dashboard:
+    kind: tab
+    index: 0
+    replaces: [DashboardView]
+    state:
+      presentedSheet: { type: enum, values: [none, addConsultation, addMedication, addAppointment, addVital, settings], initial: none }
+    derived:
+      greeting:
+        from: DashboardView.swift:49-54
+        rule: 'hour < 12 -> "Good morning"; hour < 18 -> "Good afternoon"; else "Good evening"'
+        note: No night branch. Hours 0-11 are morning. No name.
+      todaysMedsCount: "data.medications.count — no active filter, no date filter (DashboardView.swift:29-31)"
+      takenTodayCount:
+        rule: Count of DISTINCT medications with a dose logged today (D6).
+        legacy: Counted log rows, then clamped with min(count, total).
+      takenFraction: "total == 0 ? 0.0 : Double(takenTodayCount) / Double(todaysMedsCount)"
+      takenLabel: '"\(takenTodayCount) of \(todaysMedsCount) taken"'
+      nextMedicationId:
+        from: DashboardView.swift:39-41
+        rule: medications sorted by (nextDose ?? distantFuture, id) ascending, first. No
+              active filter and NO future filter — a past dose still wins (Q1, D16).
+      upcomingAppointmentIds:
+        from: DashboardView.swift:43-47, :301
+        rule: data.appointments where date >= now, sorted (date, id), prefix 3. Inclusive >= (Q2).
+      recentLogIds: "data.logs prefix 5, in storage order. No filter, no re-sort (DashboardView.swift:381)."
+      heroBranch:
+        rule: '!medications.isEmpty -> meds; else upcoming.first != nil -> appointment; else empty'
+        note: With at least one medication nextMedicationId is always non-nil, so a
+              "meds but none next" branch is unreachable (DashboardView.swift:146-162).
+      nextMedIsTaken: "isTaken(nextMedicationId) under D6 — drives the guarded button"
+    actions:
+      markNextTaken: {}
+      tapHeroAppointment: { appointmentId: UUID }
+      tapUpcomingRow: { appointmentId: UUID }
+      tapUpcomingHeader: {}
+      tapRecentActivityViewAll: {}
+      quickAction: { kind: enum, values: [doctor, meds, visit, vitals] }
+      presentSheet: { sheet: enum, values: [addConsultation, addMedication, addAppointment, addVital, settings] }
+      dismissSheet: {}
+    rules:
+      - id: mark_taken_guard
+        decision: D6
+        value: markNextTaken is a no-op when nextMedIsTaken. The guard is in the reducer.
+      - id: view_all_routing
+        decision: D12
+        value: tapRecentActivityViewAll -> app_root.jumpToMedicationHistory (tab 2 + History).
+      - id: upcoming_header_does_not_set_date
+        from: DashboardView.swift:286
+        value: tapUpcomingHeader sets tab 3 only. selectedAppointmentDate keeps its prior value.
+
+  consultations:
+    kind: tab
+    index: 1
+    replaces: [ConsultationsView]
+    state:
+      searchQuery: { type: String, initial: '""' }
+      presentedForm: { type: "UUID?", initial: null, note: "null = closed; a sentinel NEW id = add mode" }
+      formMode: { type: enum, values: [closed, add, edit], initial: closed }
+    derived:
+      filteredIds:
+        from: ConsultationsView.swift:130-140
+        rule: Empty query -> all, in storage order. Else case-insensitive substring on
+              doctorName OR specialty. Not trimmed. No sort — storage order is newest-ADDED-first.
+      totalCount: "data.consultations.count — the badge shows TOTAL, not filtered (Q11)"
+      initials:
+        from: ConsultationsView.swift:191-196
+        type: "map of consultation UUID -> String"
+        rule: First character of the first two space-separated tokens, uppercased, joined.
+              Empty result -> "?". "Dr. Sarah Jenkins" -> "DS" (Q12).
+    actions:
+      setSearch: { text: String }
+      openAdd: {}
+      openEdit: { consultationId: UUID }
+      delete: { consultationId: UUID }
+      closeForm: {}
+    rules:
+      - id: delete_is_new
+        decision: D10
+        value: Immediate remove-by-id, no confirmation, no undo — matching deleteVital.
+      - id: row_opens_edit
+        from: ConsultationsView.swift:143
+        value: The whole card is the edit affordance.
+
+  medication_tracker:
+    kind: tab
+    index: 2
+    replaces: [MedicationTrackerView]
+    state:
+      segment: { type: enum, values: [today, inventory, history], initial: today }
+      searchQuery: { type: String, initial: '""' }
+      formMode: { type: enum, values: [closed, add, edit], initial: closed }
+      editingId: { type: "UUID?", initial: null }
+    derived:
+      filteredMedications:
+        from: MedicationTrackerView.swift:26-36
+        rule: ALL medications, no active filter, no sort, no limit. Empty query -> all; else
+              case-insensitive substring on name OR instructions. Not trimmed.
+      todayGroups:
+        rule: Three groups keyed by the exact persisted strings "Morning", "Afternoon",
+              "Evening", case-sensitive. A med with any other schedule is in no group but
+              IS counted in the total (Q3). Empty group renders "Nothing scheduled".
+      takenTodayCount: "DISTINCT medications with a dose today, search-filtered (D6)"
+      totalCount: "filteredMedications.count"
+      takenFraction: "total == 0 ? 0.0 : Double(taken) / Double(total)"
+      takenLabel: '"\(taken) of \(total) taken today"'
+      allTaken: "taken == total && total > 0"
+      isTaken:
+        rule: A log exists with type "Medication Taken", today, and (medicationId == med.id
+              when present, else description.contains(med.name) case-sensitive).
+        legacy: MedicationTrackerView.swift:205-207 — string match only.
+      isLowStock:
+        decision: D8
+        rule: med.active && med.stock <= data.notificationSettings.lowStockThreshold
+      historyLogIds:
+        from: MedicationTrackerView.swift:326-343
+        rule: data.logs where type == "Medication Taken", storage order, no limit, no date
+              filter, and the SEARCH QUERY IS IGNORED (Q4).
+    actions:
+      setSegment: { segment: enum, values: [today, inventory, history] }
+      setSearch: { text: String }
+      markTaken: { medicationId: UUID }
+      incrementStock: { medicationId: UUID }
+      decrementStock: { medicationId: UUID }
+      openAdd: {}
+      openEdit: { medicationId: UUID }
+      closeForm: {}
+    rules:
+      - id: mark_taken_guard
+        decision: D6
+        value: No-op when isTaken. Guard lives in the reducer, so the dashboard path is covered too.
+      - id: stock_floor
+        from: MedicationTrackerView.swift:295-299
+        value: decrementStock is a no-op at stock 0. The button is not disabled, it just no-ops.
+               incrementStock has no ceiling. Both persist and reschedule.
+
+  appointments:
+    kind: tab
+    index: 3
+    replaces: [AppointmentsView]
+    state:
+      selectedDate: { type: Instant, initial: "app_root.selectedAppointmentDate", note: "normalized to startOfDay" }
+      weekOffset: { type: Int, initial: 0 }
+      formMode: { type: enum, values: [closed, add, edit], initial: closed }
+      editingId: { type: "UUID?", initial: null }
+    derived:
+      stripCenter: "startOfDay(now) + weekOffset*7 days (D11)"
+      stripDates: "center + (-3...+3) days — seven cells, no weekday anchor"
+      visibleIds:
+        from: AppointmentsView.swift:112-114
+        rule: |
+          data.appointments where isDate(date, inSameDayAs: selectedDate). NO date filter,
+          so past appointments show on a past day (Q2). Order is storage order, which the
+          reducer keeps sorted by (date, id).
+      headerKind:
+        from: AppointmentsView.swift:21-35
+        rule: selectedDate is today -> today; future -> inNDays; past -> nDaysAgo. Singular at 1.
+      headerDayCount: "abs(days between startOfDay(now) and selectedDate). 0 when today."
+      emptyMessageDate: "selectedDate as an Instant — the rendered string is not contract (D15)"
+    actions:
+      selectDay: { date: Instant }
+      previousWeek: {}
+      nextWeek: {}
+      openAdd: {}
+      openEdit: { appointmentId: UUID }
+      delete: { appointmentId: UUID }
+      closeForm: {}
+    rules:
+      - id: live_date_binding
+        from: MainTabView.swift:52, AppointmentsView.swift:15-17
+        plan_hard_problem: 5
+        value: |
+          THE BUG FIX. Legacy passed the date BY VALUE into State(initialValue:), so after the
+          tab was first constructed a dashboard jump changed the root date but not the tab's
+          selected day. Reflex owns the date in app_root and the tab reads it live.
+      - id: date_sync_from_root
+        plan_hard_problem: 5
+        value: When app_root.selectedAppointmentDate changes, selectedDate becomes its
+               startOfDay and weekOffset becomes round(daysBetween(startOfDay(now), thatDay) / 7)
+               — the same rounding rule as vitals_detail. Without this the strip would stay
+               on the old week and the newly selected day would be off screen. Ordinary tab
+               switching does not change the root date and so does not re-sync.
+      - id: paging_unbounded
+        decision: D11
+        value: weekOffset has no clamp and no disabled arrow state in either direction.
+      - id: delete_immediate
+        from: AppointmentsView.swift:236-238
+        value: No confirmation dialog, no swipe action, no undo.
+
+  vitals:
+    kind: tab
+    index: 4
+    replaces: [VitalsView]
+    state:
+      selectedMetric: { type: enum, values: [weight, bloodPressure, bloodSugar], initial: weight }
+      formMode: { type: enum, values: [closed, add, edit], initial: closed }
+      detailPresented: { type: Bool, initial: false }
+    derived:
+      filteredVitals:
+        from: VitalsView.swift:19-29
+        rule: data.vitals where type == selectedMetric, sorted (date, id) ascending.
+              NO time-range cutoff on this screen (Q18).
+      latestReadingId: "filteredVitals.last?.id"
+      recentIds: "filteredVitals reversed, prefix 5"
+      trend:
+        from: VitalsView.swift:51-72
+        rule: |
+          nil when count < 2. nil when previous == 0. Else
+          percentage = (current - previous) / previous * 100, comparing the LAST TWO of the
+          ascending series. Display magnitude is abs(percentage) at %.1f.
+          direction: down when diff < 0, up when diff > 0, flat when diff == 0.
+          sentiment: down -> good, up -> bad, flat -> neutral, for EVERY metric (Q17).
+          Blood pressure compares systolic only.
+      formattedValue:
+        decision: D14
+        rule: weight "%.1f kg"; bloodSugar "%.0f mg/dL"; bloodPressure "Int/Int mmHg" with
+              value2 ?? 0. Empty -> "--". Unit appended exactly once.
+      rowIcon:
+        decision: D4
+        rule: Semantic icon from vital.type via icons.yaml — never a fixed scalemass.
+    actions:
+      selectMetric: { metric: enum, values: [weight, bloodPressure, bloodSugar] }
+      openAdd: {}
+      openEdit: { vitalId: UUID }
+      delete: { vitalId: UUID }
+      openDetail: {}
+      closeDetail: {}
+      closeForm: {}
+    rules:
+      - id: edit_is_new
+        decision: D10
+        value: openEdit presents add_vital in edit mode. Replace by id, storage position preserved.
+      - id: delete_immediate
+        from: VitalsView.swift:307-309
+        value: Trash button, immediate, no confirmation, no swipe.
+      - id: no_vital_log
+        from: MedicalViewModel.swift:153-156, :186-191
+        value: Adding or deleting a vital writes NO Log entry. Only markTaken writes logs.
+
+  vitals_detail:
+    kind: push
+    replaces: [AllVitalsView]
+    state:
+      metric: { type: enum, values: [weight, bloodPressure, bloodSugar], initial: weight }
+      range: { type: enum, values: [week, month, quarter, all], initial: week }
+      weekOffset: { type: Int, initial: 0 }
+      selectedDate: { type: Instant, initial: "startOfDay(now)" }
+      highlightedVitalId: { type: "UUID?", initial: null }
+    derived:
+      rangeDays: "week 7, month 30, quarter 90, all null"
+      cutoff:
+        from: AllVitalsView.swift:22-47
+        rule: now - days*86400 as a ROLLING INSTANT, not startOfDay. null for all.
+      filteredVitals: "type == metric && (cutoff == null || date >= cutoff), sorted (date, id). Inclusive >=."
+      stripCenter: "startOfDay(now) + weekOffset*7 days (D11, same rule as appointments)"
+      stripDates: "center + (-3...+3) days"
+      stripDotDates: "dates in the strip that have at least one filteredVitals reading that day"
+      selectedDayIds: "filteredVitals on selectedDate, ASCENDING (oldest first)"
+      allReadingIds: "filteredVitals reversed, newest first, NO limit"
+      chartValues: "filteredVitals.map { systolic for BP, else value } — value2 is never charted"
+      chartMin: "chartValues.min(), null when empty"
+      chartMax: "chartValues.max(), null when empty"
+      trend: "Same formula as vitals.trend but applied to the RANGE-FILTERED series (Q18)."
+      selectedDayCount: "selectedDayIds.count"
+      totalCount: "filteredVitals.count"
+      formattedValue: "D14, same rule as the Vitals tab"
+    actions:
+      selectMetric: { metric: enum, values: [weight, bloodPressure, bloodSugar] }
+      selectRange: { range: enum, values: [week, month, quarter, all] }
+      previousWeek: {}
+      nextWeek: {}
+      selectDay: { date: Instant }
+      tapReading: { vitalId: UUID }
+      close: {}
+    messages:
+      highlightClearFired: { vitalId: UUID }
+    effects:
+      - "tapReading -> highlightedVitalId = id, scheduler.after(0.9, highlightClearFired(id))"
+      - "tapReading from the All-readings list ALSO sets selectedDate = startOfDay(vital.date) and weekOffset = round(daysBetween(today, thatDay) / 7)"
+    rules:
+      - id: highlight_clear
+        decision: D2
+        from: AllVitalsView.swift:423-439, :485-498
+        value: highlightClearFired clears ONLY if highlightedVitalId still equals the carried
+               id. Assert eventual state after flush, never the 0.9s.
+      - id: selection_not_reset
+        decision: D11
+        from: AllVitalsView.swift:141-142, :184
+        value: Changing metric, range or weekOffset does NOT reset selectedDate or the
+               highlight. selectedDate may point outside the visible strip and outside the range.
+      - id: week_offset_sync
+        from: AllVitalsView.swift:559-565
+        value: round(daysDiff / 7.0), nearest with ties away from zero. -4 days -> -1; -3 -> 0.
+               Invoked only by an All-readings row tap, never by a day-cell tap.
+      - id: single_point_chart
+        from: VitalsView.swift:357-383
+        value: One point renders a flat mid-height line. min == max maps to normalizedY 0.5.
+               Empty renders the empty state instead of a chart.
+
+  add_vital:
+    kind: modal
+    replaces: [AddVitalView]
+    state:
+      mode: { type: enum, values: [add, edit], initial: add }
+      editingId: { type: "UUID?", initial: null }
+      type: { type: enum, values: [weight, bloodPressure, bloodSugar], initial: weight }
+      valueText: { type: String, initial: '""' }
+      value2Text: { type: String, initial: '""' }
+      date: { type: Instant, initial: "clock.now" }
+      notesText: { type: String, initial: '""' }
+    derived:
+      value2Visible: "type == bloodPressure"
+      canSave: "!valueText.isEmpty"
+      unit: "kg | mmHg | mg/dL by type"
+    actions:
+      setMode: { mode: enum, values: [add, edit], vitalId: "UUID?" }
+      setType: { type: enum, values: [weight, bloodPressure, bloodSugar] }
+      setValueText: { text: String }
+      setValue2Text: { text: String }
+      setDate: { date: Instant }
+      setNotes: { text: String }
+      save: {}
+      cancel: {}
+    rules:
+      - id: silent_noop_on_unparseable
+        from: AddVitalView.swift:195-202
+        value: Q7. canSave only checks isEmpty. If Double(valueText) is nil, save does nothing,
+               presents no error, and the modal stays open. Whitespace, "abc", "12,5" all hit this.
+      - id: numeric_leniency
+        value: Negative, zero, inf, nan and exponent notation are all accepted. No plausibility check.
+      - id: value2_optional
+        from: AddVitalView.swift:52-61, :197
+        value: value2 is never required. Unparseable or empty -> nil -> rows render "/0".
+               Switching type does NOT clear value2Text; it is merely ignored for non-BP.
+      - id: notes_nil_when_empty
+        value: "'notesText.isEmpty ? nil : notesText'. Whitespace notes persist verbatim."
+      - id: date_unbounded
+        value: No range limit. Future dates are allowed.
+      - id: edit_mode
+        decision: D10
+        value: setMode(edit, id) prefills every field from the stored Vital. Save replaces by
+               id and keeps storage position. Add inserts at index 0 (Q16).
+      - id: numeric_prefill
+        decision: D10
+        value: valueText and value2Text prefill with the shortest round-trip decimal form of
+               the stored Double (78.2 -> "78.2", 120.0 -> "120"), NOT the display format.
+               A nil value2 prefills as "". Both platforms must produce the same string, so
+               neither may use a locale formatter here.
+      - id: id_consumption
+        value: save in add mode consumes exactly ONE id, for the Vital. Edit consumes none.
+
+  add_medication:
+    kind: modal
+    replaces: [AddMedicationView]
+    state:
+      mode: { type: enum, values: [add, edit], initial: add }
+      editingId: { type: "UUID?", initial: null }
+      nameText: { type: String, initial: '""' }
+      dosageText: { type: String, initial: '""' }
+      instructionsText: { type: String, initial: '""' }
+      schedule: { type: enum, values: [Morning, Afternoon, Evening], initial: Morning, persisted_raw: true }
+      stockText: { type: String, initial: '""' }
+    derived:
+      canSave: "!nameText.isEmpty && !dosageText.isEmpty"
+    actions:
+      setMode: { mode: enum, values: [add, edit], medicationId: "UUID?" }
+      setName: { text: String }
+      setDosage: { text: String }
+      setInstructions: { text: String }
+      setSchedule: { schedule: enum, values: [Morning, Afternoon, Evening] }
+      setStockText: { text: String }
+      save: {}
+      cancel: {}
+    rules:
+      - id: stock_parsing
+        from: AddMedicationView.swift:188
+        value: Q6. Int(stockText) ?? 0. Empty/non-numeric/decimal/padded -> 0. Negative accepted.
+      - id: whitespace_passes
+        decision: D13
+        value: canSave uses isEmpty WITHOUT trimming, so " " passes and persists untrimmed.
+      - id: next_dose_on_add
+        from: AddMedicationView.swift:198
+        value: nextDose = now, active = true. Already past by render time, so the planner's
+               trigger > now guard skips the reminder.
+      - id: edit_preserves
+        from: AddMedicationView.swift:190-195
+        value: Edit overwrites name, dosage, instructions, schedule, stock ONLY. nextDose,
+               active and id are preserved.
+      - id: insertion
+        from: MedicalViewModel.swift:163-166
+        value: Add APPENDS (unlike vitals and consultations, which insert at 0).
+      - id: id_consumption
+        value: save in add mode consumes exactly ONE id.
+
+  add_appointment:
+    kind: modal
+    replaces: [AddAppointmentView]
+    state:
+      mode: { type: enum, values: [add, edit], initial: add }
+      editingId: { type: "UUID?", initial: null }
+      doctorNameText: { type: String, initial: '""' }
+      specialtyText: { type: String, initial: '""' }
+      typeText: { type: String, initial: '""' }
+      date: { type: Instant, initial: "appointments.selectedDate" }
+      locationText: { type: String, initial: '""' }
+      notesText: { type: String, initial: '""' }
+    derived:
+      canSave: "!doctorNameText.isEmpty && !specialtyText.isEmpty && !typeText.isEmpty && !locationText.isEmpty"
+    actions:
+      setMode: { mode: enum, values: [add, edit], appointmentId: "UUID?" }
+      setDoctorName: { text: String }
+      setSpecialty: { text: String }
+      setType: { text: String }
+      setDate: { date: Instant }
+      setLocation: { text: String }
+      setNotes: { text: String }
+      save: {}
+      cancel: {}
+    rules:
+      - id: four_field_gate
+        from: AddAppointmentView.swift:128, :163
+        value: Whitespace-only passes on all four (isEmpty, no trim).
+      - id: type_is_free_text
+        value: Q8. No enum, no picker. Any string persists.
+      - id: notify_not_editable
+        value: Q8. No toggle. true on create, preserved on edit.
+      - id: notes_nil_when_empty
+        value: 'notesText.isEmpty ? nil : notesText'
+      - id: resort_on_add_and_update
+        from: MedicalViewModel.swift:169-171, :228-234
+        value: The whole appointments array re-sorts by (date, id) on BOTH paths. Editing a
+               date can move the row off the currently selected day.
+      - id: date_unbounded
+        value: No range limit, date and time both editable.
+      - id: id_consumption
+        value: save in add mode consumes exactly ONE id.
+
+  consultation_form:
+    kind: modal
+    replaces: [NewConsultationView]
+    state:
+      mode: { type: enum, values: [add, edit], initial: add }
+      editingId: { type: "UUID?", initial: null }
+      doctorNameText: { type: String, initial: '""' }
+      specialtyText: { type: String, initial: '""' }
+      date: { type: Instant, initial: "clock.now" }
+      notesText: { type: String, initial: '""' }
+      linkedMedicationIds: { type: "[UUID]", initial: "[]" }
+      pickerPresented: { type: Bool, initial: false }
+    derived:
+      canSave:
+        decision: D13
+        rule: "!doctorNameText.trimmingWhitespaceAndNewlines.isEmpty"
+      linkedRows:
+        rule: For each id in order, resolve against data.medications. An unresolved id
+              renders nothing but STAYS in the array and is written back on save (Q10).
+    actions:
+      setMode: { mode: enum, values: [add, edit], consultationId: "UUID?" }
+      setDoctorName: { text: String }
+      setSpecialty: { text: String }
+      setDate: { date: Instant }
+      setNotes: { text: String }
+      unlinkMedication: { medicationId: UUID }
+      presentPicker: {}
+      dismissPicker: {}
+      save: {}
+      cancel: {}
+    messages:
+      pickerSelectionChanged: { ids: "[UUID]" }
+    rules:
+      - id: notes_required_string
+        from: MedicalModels.swift:113
+        value: Consultation.notes is non-optional. Empty persists as "", never nil — unlike
+               Appointment.notes. This is why null_on_required.json throws.
+      - id: live_picker
+        value: Q9. Selection mutates the form's array immediately via pickerSelectionChanged.
+               Dismissing the picker does not revert. Only Cancel on the FORM discards.
+      - id: insertion
+        from: MedicalViewModel.swift:158-161, :236-241
+        value: Add inserts at index 0. Edit replaces in place with NO re-sort.
+      - id: id_consumption
+        value: save in add mode consumes exactly ONE id.
+
+  medication_picker:
+    kind: modal_child
+    replaces: [MedicationPickerView declared inline in NewConsultationView.swift:233-271]
+    state:
+      selectedIds: { type: "[UUID]", initial: "[]" }
+    derived:
+      availableIds: "data.medications in storage order. No active filter, no search."
+    actions:
+      toggle: { medicationId: UUID }
+      done: {}
+    effects:
+      - "toggle -> selectedIds updated, consultation_form.pickerSelectionChanged(ids)"
+    rules:
+      - id: toggle_order
+        from: NewConsultationView.swift:242-247
+        value: Deselect removes all matching entries. Select appends at the end, so order is tap order.
+      - id: done_is_dismiss_only
+        value: Q9. done emits no commit; the parent already has the ids.
+
+  settings:
+    kind: modal
+    replaces: [SettingsView]
+    state:
+      draft: { type: NotificationSettings, initial: "app_root.data.notificationSettings" }
+    derived:
+      sectionsVisible: "draft.allNotificationsEnabled"
+      medicationTimeVisible: "draft.allNotificationsEnabled && draft.medicationsEnabled"
+      thresholdVisible: "draft.allNotificationsEnabled && draft.lowStockEnabled"
+      appointmentTimeVisible: "draft.allNotificationsEnabled && draft.appointmentsEnabled"
+      thresholdOptions: "[3, 5, 10]"
+      reminderOptions: '["At time of event", "5 minutes before", "1 hour before", "1 day before"]'
+    actions:
+      setAllEnabled: { value: Bool }
+      setMedicationsEnabled: { value: Bool }
+      setAppointmentsEnabled: { value: Bool }
+      setConsultationsEnabled: { value: Bool }
+      setLowStockEnabled: { value: Bool }
+      setLowStockThreshold: { value: Int }
+      setMedicationReminderTime: { value: ReminderTime }
+      setAppointmentReminderTime: { value: ReminderTime }
+      save: {}
+      cancel: {}
+    rules:
+      - id: draft_isolation
+        from: SettingsView.swift:12, :17, :72-77
+        value: Every control binds to the draft. app_root.data is untouched until save.
+      - id: cancel_discards
+        value: cancel closes the modal and drops the draft. No write, no reschedule.
+      - id: save_always_writes
+        value: Q14. No dirty check. Saving unchanged settings still writes and reschedules.
+      - id: hidden_values_persist
+        from: SettingsView.swift:28
+        value: Hiding a section does NOT reset its values. They persist in the draft and are saved.
+      - id: consultation_time
+        decision: D9
+        value: There is still no consultation-specific time picker. Consultations read
+               appointmentReminderTime.
+
+# --- Shared pure helpers, written twice, parity-tested ---
+selectors:
+  isTaken:
+    signature: "(medicationId: UUID, data: MedicalData, now: Instant) -> Bool"
+    rule: See medication_tracker.derived.isTaken. Used by BOTH dashboard and tracker (D6).
+  isLowStock:
+    signature: "(medication: Medication, settings: NotificationSettings) -> Bool"
+    rule: med.active && med.stock <= settings.lowStockThreshold (D8). One rule for badge and planner.
+  trend:
+    signature: "([Vital]) -> Trend?"
+    rule: See vitals.derived.trend. Callers differ only in whether the series is range-filtered (Q18).
+  formatVitalValue:
+    signature: "(Vital) -> String"
+    rule: D14. No unit inside — the caller appends the unit once.
+  dayWindow:
+    signature: "(now: Instant, weekOffset: Int) -> [Instant]"
+    rule: D11. startOfDay(now) + weekOffset*7 days, then + (-3...+3) days. Shared by appointments
+          and vitals_detail so the two strips cannot drift apart.

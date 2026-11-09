@@ -1,0 +1,91 @@
+# Semantic icon contract. Replaces Skip's IconMapper (Theme.swift), which maps SF Symbol
+# strings to Android drawable names and falls back to "ic_add" for anything unmapped.
+#
+# THAT FALLBACK IS THE PROBLEM: an unmapped icon silently renders as a PLUS SIGN on Android.
+# Five icons in v0.0.19 hit it today, including the unlink-medication button — so "remove
+# linked medication" shows a plus on Android. See gaps below.
+#
+# Core references semantic names only. Neither SF Symbols nor drawable names appear in Core.
+# Each platform resolves the semantic name in its UI layer.
+
+resolution:
+  ios: SF Symbols, system rendering
+  android: res/drawable vector XML, tinted by the UI layer
+  rule: |
+    Every semantic name MUST resolve on both platforms. No fallback icon. A missing mapping
+    is a build-time contract failure, not a runtime plus sign.
+
+icons:
+  # --- Tabs ---
+  tab.home:            { sf: house.fill,              android: ic_home }
+  tab.consults:        { sf: cross.case.fill,         android: ic_medical_services }
+  tab.meds:            { sf: pills.fill,              android: ic_pills }
+  tab.calendar:        { sf: calendar,                android: ic_calendar }
+  tab.vitals:          { sf: heart.text.square.fill,  android: ic_favorite }
+
+  # --- Vital types (decision #4: fix the vitalRow bug) ---
+  # VitalsView.vitalRow hardcodes "scalemass" for every type. AllVitalsView.iconForType
+  # already does this correctly; the fix is to use that mapping in both places.
+  vital.weight:        { sf: scalemass,   android: ic_monitor_weight }
+  vital.bloodPressure: { sf: heart.fill,  android: ic_favorite_border }
+  vital.bloodSugar:    { sf: drop.fill,   android: ic_water_drop,  new_drawable: true }
+
+  # --- Trend trio ---
+  # v0.0.19 maps arrow.down.right -> ic_trending_down (a chart glyph) but leaves
+  # arrow.up.right and arrow.right unmapped, so only the DOWN trend renders on Android.
+  # Make the trio consistent chart glyphs on both sides.
+  trend.down:          { sf: arrow.down.right, android: ic_trending_down }
+  trend.up:            { sf: arrow.up.right,   android: ic_trending_up,   new_drawable: true }
+  trend.flat:          { sf: arrow.right,      android: ic_trending_flat, new_drawable: true }
+
+  # --- Actions ---
+  action.add:          { sf: plus,               android: ic_add }
+  action.addCircle:    { sf: plus.circle,        android: ic_add_circle }
+  action.remove:       { sf: minus.circle.fill,  android: ic_remove_circle, new_drawable: true }
+  action.delete:       { sf: trash,              android: ic_delete }
+  action.edit:         { sf: pencil.circle,      android: ic_edit }
+  action.confirm:      { sf: checkmark,          android: ic_check }
+  action.done:         { sf: checkmark.circle.fill, android: ic_check_circle }
+  action.search:       { sf: magnifyingglass,    android: ic_search }
+  action.settings:     { sf: bell.fill,          android: ic_notifications }
+  action.back:         { sf: chevron.left,       android: ic_arrow_back }
+  action.forward:      { sf: chevron.right,      android: ic_arrow_forward }
+
+  # --- Content ---
+  content.time:        { sf: clock,                android: ic_schedule }
+  content.location:    { sf: mappin.and.ellipse,   android: ic_location_on }
+  content.history:     { sf: chart.bar.fill,       android: ic_bar_chart }
+  content.info:        { sf: info.circle,          android: ic_info }
+  content.logEdited:   { sf: pencil.circle.fill,   android: ic_edit }
+  onboarding.sparkle:  { sf: sparkles,             android: ic_auto_awesome, new_drawable: true }
+
+# Icons present in v0.0.19's IconMapper but unused by any screen. Not carried forward.
+dropped:
+  - arrow.uturn.backward   # ic_undo
+  - arrow.uturn.forward    # ic_redo
+  - arrow.counterclockwise # ic_refresh
+  - arrow.up               # ic_arrow_upward
+  - bell.slash             # ic_notifications_off
+  - xmark                  # ic_close
+  - gearshape              # ic_settings
+  - hand.tap.fill          # ic_touch_app
+  - square.and.arrow.up    # ic_share
+  - person.fill            # ic_person
+  - shield.righthalf.filled # ic_shield
+  - doc.text               # ic_description
+  - wifi.slash             # ic_wifi_off
+  - network                # ic_hub
+  - lightbulb.fill         # ic_lightbulb
+  - stethoscope            # ic_medical_services
+  - error                  # ic_error
+  - circle                 # ic_circle
+
+# Work required in Phase 4 (UI), tracked here so the contract is honest about what exists.
+new_drawables_required:
+  - ic_water_drop      # vital.bloodSugar — currently a plus sign on Android
+  - ic_trending_up     # trend.up — currently a plus sign
+  - ic_trending_flat   # trend.flat — currently a plus sign
+  - ic_remove_circle   # action.remove — currently a plus sign, semantically inverted
+  - ic_auto_awesome    # onboarding.sparkle — currently a plus sign
+
+existing_drawables_reused: 43 vectors already in Android/app/src/main/res/drawable/

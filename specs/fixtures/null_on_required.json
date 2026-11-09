@@ -1,0 +1,26 @@
+{
+  "appointments": [],
+  "medications": [],
+  "consultations": [
+    {
+      "id": "00000000-0000-4000-8000-000000000091",
+      "doctorName": "Null On Required",
+      "specialty": "Cardiologist",
+      "date": "2026-11-07T12:00:00Z",
+      "notes": null,
+      "linkedMedications": []
+    }
+  ],
+  "vitals": [],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

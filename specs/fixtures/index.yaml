@@ -1,0 +1,208 @@
+# Fixture index. Each entry states the setup a journey must apply and the reducer branches
+# the fixture exists to reach. All instants resolve against determinism.yaml#clock
+# (now = 2026-11-07T12:00:00Z, UTC).
+
+fixtures:
+
+  empty:
+    file: empty.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: loads successfully, all collections empty, default settings
+    covers:
+      - every screen's empty state
+      - dashboard empty hero branch
+      - fraction = 0.0 when total == 0 (no divide-by-zero)
+      - post-onboarding state (this IS the post-onboarding fixture; the difference from a
+        first launch is the key_value flag, not the data)
+
+  seeded_demo:
+    file: seeded_demo.json
+    key_value: { hasCompletedOnboarding: false }
+    expect: matches the pure demoSeed(now) at the pinned clock, field for field (D7 repaired)
+    covers:
+      - first-launch seeding
+      - onboarding tour across 5 tabs
+      - dashboard greeting at 12:00 = afternoon
+      - nextMedication selects Vitamin D3 (earliest nextDose) despite it being in the past
+      - upcomingAppointments includes the 14:30 appointment
+      - low-stock badge on Ibuprofen (stock 3 <= threshold 5, D8)
+      - a coherent seed log — 1/3 taken AND exactly the Vitamin D3 row checked (D7)
+    resolved_quirk: |
+      WAS: the seed log read "Omega-3 Dose Taken" against a seed with no Omega-3, so the
+      dashboard claimed 1/3 while zero tracker rows rendered checked. D7 (2026-11-07) REPAIRED
+      it: the log now reads "Vitamin D3 Dose Taken" and carries medicationId = seed_medication_1
+      (...0002). Same 1/3 shape, coherent content. This supersedes the old known_quirk block;
+      the fixture JSON has been updated to match. See behavior/app_load.yaml#seed_log_is_coherent.
+
+  low_stock:
+    file: low_stock.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: planner emits low-stock alerts for stock 5, 4 and 0; not for 6; not for the inactive med
+    covers:
+      - threshold boundary is stock <= threshold, so stock == 5 DOES alert
+      - active == false excludes a med from every notification category
+      - inventory minus button floors at 0 and is guarded by stock > 0
+      - lowStockEnabled true while all other categories are false
+    resolved_quirk: |
+      WAS: the planner alerted at stock <= lowStockThreshold (5) while the Today-row badge and
+      Inventory tint were hardcoded to stock < 5, so "At Threshold" alerted with no badge.
+      D8 (2026-11-07) UNIFIED them: one selector isLowStock(med, settings) =
+      med.active && med.stock <= settings.lowStockThreshold feeds badge, tint AND planner.
+      "At Threshold" now both alerts and badges. The active gate is added to the badge too
+      (REVIEW_AT_FREEZE). See behavior/notification_planner.yaml and medication_lifecycle.yaml.
+
+  bp_composite:
+    file: bp_composite.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: loads; each metric filters and formats independently
+    covers:
+      - bloodPressure with value2 renders 120/80 mmHg
+      - bloodPressure without value2 renders 130/0 mmHg (documented fallback, not a crash)
+      - equal consecutive values produce the 0.0% flat trend branch
+      - previous == 0.0 makes trendPercentage nil rather than dividing by zero
+      - fewer than two readings makes trendPercentage nil
+      - weight formatting %.1f, bloodSugar formatting %.0f
+      - range cutoff boundaries at 7 / 30 / 90 days and .all
+      - decision #4 icon fix: each type resolves its own semantic icon
+
+  legacy_pre_medication_id:
+    file: legacy_pre_medication_id.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: loads; no log carries medicationId; legacy string matching applies
+    covers:
+      - the isTaken fallback path that 1.0 must keep for existing files
+      - NAME COLLISION - "Vitamin D3 Dose Taken" contains "Vitamin D", so v0.0.19 marks
+        BOTH meds taken from one dose
+      - ORPHANED HISTORY - "Old Brand Name Dose Taken" matches nothing after a rename, so
+        the med shows untaken despite a dose today
+      - takenTodayCount = 2 (both today logs) regardless of the above
+      - yesterday's log is excluded by the today check
+    note: |
+      This fixture is the justification for Log.medicationId. Phase 1 asserts the legacy
+      behavior here for backward compatibility, and asserts the CORRECT behavior in a
+      sibling journey where logs carry medicationId.
+
+  notification_matrix:
+    file: notification_matrix.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: |
+      With now = 12:00Z and appointmentReminderTime = "1 day before":
+        appointments -> only "Future Notifying" (2026-11-10T12:00Z, trigger 11-09T12:00Z).
+          "Soon Offset Killed" is 30min away so its -24h trigger is past => dropped.
+          "Future Muted" has notify=false => dropped. "Past Appointment" => dropped.
+        medications -> only "Future Dose" (18:00 today, atTime offset).
+          "Past Dose" 09:00 => dropped. "No Dose Scheduled" => dropped.
+          "Inactive Future Dose" active=false => dropped.
+        consultations -> only "Future Consult" (11-20, trigger 11-19T12:00Z).
+          "Consult Inside Offset Window" is future but its -24h trigger is past => dropped.
+        low stock -> none, all stock is 20.
+      Total: 3 scheduled notifications.
+    covers:
+      - every category gate
+      - the post-offset trigger > now re-check, which is the subtlest planner rule
+      - notify=false and active=false exclusions
+      - consultation reads appointmentReminderTime (D9); default "1 day before" = legacy -24h
+    variants:
+      all_disabled: set allNotificationsEnabled=false => expect empty set
+      per_category: toggle each of the four category flags independently
+      offsets: run the matrix at each ReminderTime value (0 / -300 / -3600 / -86400)
+
+  partial_top_level:
+    file: partial_top_level.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: loads; medications present; all other collections default to []; settings default
+    covers:
+      - MedicalData.init(from:) decodeIfPresent leniency for all six keys
+      - default NotificationSettings when the key is absent
+    rule: A stricter decoder that requires all six keys would reject a file the shipping app accepts.
+
+  null_on_optional:
+    file: null_on_optional.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: LOADS SUCCESSFULLY. Appointment.notes is String?, decodeIfPresent maps null to nil.
+    covers:
+      - explicit null tolerated on optional fields
+    note: Round-tripping this file must OMIT the notes key, not re-emit null.
+
+  null_on_required:
+    file: null_on_required.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: THROWS. Consultation.notes is a non-optional String; decode() rejects null.
+    covers:
+      - the optional/required null asymmetry Kotlin must reproduce
+      - drives the load-error branch
+
+  malformed:
+    file: malformed.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: THROWS (truncated JSON, simulates an interrupted write)
+    covers:
+      - load error with onboarding complete => empty MedicalData, NO demo seed,
+        and the unreadable file is LEFT ON DISK for recovery
+    sibling_journey: |
+      Same fixture with hasCompletedOnboarding=false => demo data IS seeded and persisted.
+      Both branches come from MedicalViewModel.load()'s catch block.
+
+  partial_settings:
+    file: partial_settings.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: THROWS. notificationSettings is PRESENT but carries only 2 of its 8 required fields.
+    covers:
+      - the leniency asymmetry — a MISSING settings key defaults (partial_top_level), but a
+        PARTIAL settings object is rejected because NotificationSettings.init(from:) uses
+        decode() for all eight fields once the object is present
+      - drives the load-error branch with onboarding complete => empty data, file left on disk
+    rule: Kotlin must reproduce decode() vs decodeIfPresent exactly, not treat partial as absent.
+
+  unknown_keys:
+    file: unknown_keys.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: loads; extra top-level and entity keys are ignored on read and dropped on write
+    covers:
+      - unknown_key leniency (persistence.yaml#leniency)
+      - forward-compat — a file a future version wrote with extra keys still loads in 1.0
+    note: |
+      The file is the repaired seeded_demo plus unknown keys (schemaVersion, __futureFeature,
+      a medication "tags" array, a log "extraLogField"). After a round-trip it must equal
+      seeded_demo EXACTLY — the decoder ignores the extras and the encoder never re-emits them.
+      data_compat asserts store.saved equals $fixture:seeded_demo, not $fixture:unknown_keys.
+
+  golden_ios:
+    file: golden_ios.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: |
+      MISSING until captured from a live v0.0.19 install. Once present it must load through
+      the real decoder and survive a save with no field loss.
+    covers:
+      - the shipping encoder's real output — key presence, date precision, UUID case, number formatting
+      - the iOS half of the Phase 5 real-install migration check
+    used_by: reflex/tools/verify-migration.sh
+
+  golden_android:
+    file: golden_android.json
+    key_value: { hasCompletedOnboarding: true }
+    expect: |
+      MISSING until captured from a live v0.0.19 install. Once present it must load through
+      the real decoder and survive a save with no field loss.
+    covers:
+      - whether Skip's transpiled encoder already diverged from Foundation's
+      - the Android half of the Phase 5 real-install migration check
+    used_by: reflex/tools/verify-migration.sh
+
+# --- Not yet present; blocked on the capture script ---
+golden:
+  files: [golden_ios.json, golden_android.json]
+  status: MISSING - must be captured from a live v0.0.19 install
+  purpose: |
+    Every fixture above is derived statically from the Codable structs. The golden captures
+    are real encoder output and are the only thing that can confirm the static derivation is
+    right (key presence, date precision, UUID case, number formatting). Capturing BOTH
+    platforms also reveals whether Skip's transpiled encoder already diverges from
+    Foundation's — if it does, 1.0 must be able to read both shapes.
+  capture: reflex/tools/capture-golden-fixture.sh {ios|android|both}
+  validate: node reflex/tools/validate-fixtures.js reflex/specs
+  verify: reflex/tools/verify-migration.sh
+  rule: |
+    data_compat cannot be considered passing until these files exist and round-trip.
+    Do not synthesize them from seeded_demo.json — that would be testing the assumption
+    against itself.

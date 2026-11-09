@@ -1,0 +1,225 @@
+schema: reflex/behavior/1
+id: data_compat
+title: Lossless semantic round-trip and the v0.0.19 upgrade path
+nodes: [app_root, settings, medication_tracker]
+evidence:
+  - reflex/specs/contracts/persistence.yaml#compatibility_guarantee
+  - reflex/specs/contracts/persistence.yaml#leniency
+  - reflex/specs/contracts/persistence.yaml#additive_changes_in_1_0
+  - Sources/AppModel/MedicalViewModel.swift:243-266
+decisions: [D6, D7]
+unpinned:
+  - "raw bytes and key order — semantic equality only (persistence.yaml#compatibility_guarantee)"
+  - "rendered date strings (D15)"
+
+# THE CONTRACT IS SEMANTIC, NOT BYTE-STABLE. JSONEncoder and kotlinx.serialization can never
+# emit identical bytes (key ordering differs), so this journey compares PARSED VALUES field by
+# field. The MedicalStore fixture adapter encodes through the platform's real encoder on save
+# and decodes through the real decoder on load (runner.yaml#fixture_adapters), so `store.saved`
+# is decode(encode(x)) — a genuine codec round-trip, not the in-memory object handed to save.
+#
+# The no-op mutation that forces a save without altering data is settings.save: Q14 guarantees
+# it always writes and reschedules even when the draft is unchanged. presentSettings seeds the
+# draft from the loaded data, save commits it verbatim.
+#
+# Whole-value equality (`store.saved equals $fixture:<name>`) works because expected values are
+# canonicalized by the same rules as actuals (runner.yaml#canonicalization): sorted keys,
+# uppercase UUIDs, ISO8601 UTC instants, omitted null optionals. A fixture's explicit null and
+# a saved omission therefore compare equal.
+
+cases:
+
+  - id: seeded_demo_round_trips_losslessly
+    given:
+      fixture: seeded_demo
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:seeded_demo
+          - path: store.writeCount
+            equals: 1
+          - path: store.filePresent
+            equals: true
+      - note: The repaired seed (D7) carries medicationId on its log. Every field — instants,
+              UUIDs, the optional notes, the additive id — survives encode then decode.
+
+  - id: legacy_file_round_trips_without_inventing_ids
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:legacy_pre_medication_id
+          - path: store.saved.logs[0].medicationId
+            is_null: true
+          - path: ids.consumed
+            equals: 0
+      - note: |
+          DOWNGRADE SAFETY. A pre-1.0 file has no medicationId on any log. A plain save must
+          NOT backfill one — v0.0.19 ignores the key, but inventing ids would change which
+          doses the legacy substring match considers taken. The file round-trips unchanged.
+
+  - id: nil_optional_is_omitted_not_reemitted
+    given:
+      fixture: null_on_optional
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved.appointments[0].notes
+            is_null: true
+          - path: store.saved
+            equals: $fixture:null_on_optional
+      - note: |
+          The fixture writes an explicit null notes value; the writer must OMIT the key
+          (encodeIfPresent), never re-emit null. Both sides canonicalize to an absent
+          key, so the whole-value equality holds. persistence.yaml#nil_optionals.
+
+  - id: new_dose_log_persists_medication_id
+    divergence: D6
+    given:
+      fixture: legacy_pre_medication_id
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: medication_tracker.markTaken
+        args: { medicationId: "$fixture:legacy_pre_medication_id.medications[2].id" }
+      - flush: all
+      - expect:
+          - path: store.saved.logs.count
+            equals: 4
+          - path: store.saved.logs[0].id
+            equals: $1
+          - path: store.saved.logs[0].medicationId
+            equals: "$fixture:legacy_pre_medication_id.medications[2].id"
+          - path: store.saved.logs[0].description
+            equals: "Renamed Since Log Dose Taken"
+          - path: store.saved.logs[0].type
+            equals: "Medication Taken"
+          - path: store.saved.logs[0].source
+            equals: "Manual Log"
+          - path: store.saved.logs[0].date
+            equals: $now
+          - path: store.saved.logs[1].medicationId
+            is_null: true
+          - path: store.writeCount
+            equals: 1
+      - note: |
+          The additive field round-trips. A NEW dose prepends a log carrying medicationId
+          (logs[0]); the three legacy logs shift down and keep NO id (logs[1] checked). This
+          is the only schema addition in 1.0 and it is optional, so the file stays readable
+          by v0.0.19. "Renamed Since Log" is the one untaken med in this fixture.
+
+  - id: partial_settings_object_is_rejected
+    given:
+      fixture: partial_settings
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: unreadable
+          - path: state.app_root.loadError
+            not_null: true
+          - path: data.medications.count
+            equals: 0
+          - path: store.writeCount
+            equals: 0
+          - path: store.filePresent
+            equals: true
+      - note: |
+          Leniency is asymmetric. A MISSING notificationSettings key defaults (partial_top_level,
+          asserted in app_load), but once the object is PRESENT all eight fields are required —
+          a partial object throws. Kotlin must reproduce decode() vs decodeIfPresent exactly.
+          The unreadable file is left on disk, never overwritten. persistence.yaml#leniency.
+
+  - id: unknown_keys_are_ignored_on_read_and_dropped_on_write
+    given:
+      fixture: unknown_keys
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - expect:
+          - path: state.app_root.loadPhase
+            equals: loaded
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:seeded_demo
+      - note: unknown_keys is the repaired seed plus extra top-level and entity keys a future
+              version might write. The decoder ignores them; the encoder drops them. After a
+              round-trip the file equals the known seed exactly. persistence.yaml#leniency.
+
+  - id: bp_composite_round_trips
+    given:
+      fixture: bp_composite
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:bp_composite
+      - note: Exercises value2 present (120/80) and absent (130, omitted not nulled), a zero
+              value, and notes. The optional value2 omission is the composite-field round-trip.
+
+  - id: notification_matrix_round_trips
+    given:
+      fixture: notification_matrix
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:notification_matrix
+      - note: Exercises notify false, active false, and a medication with nextDose ABSENT
+              (omitted, not null). All eight notificationSettings fields are present.
+
+  - id: low_stock_round_trips
+    given:
+      fixture: low_stock
+      key_value: { hasCompletedOnboarding: true }
+    steps:
+      - send: app_root.presentSettings
+      - send: settings.save
+      - flush: all
+      - expect:
+          - path: store.saved
+            equals: $fixture:low_stock
+      - note: Exercises stock 0 (a real integer, never omitted) and an inactive medication.
+
+# --- GOLDEN CAPTURES (hand task — see fixtures/index.yaml#golden) ---
+# The cases above are derived statically from the Codable structs. Two more cases are needed:
+# they MUST run against a file captured from a live v0.0.19 install — the only evidence that
+# the static derivation matches real encoder output (key presence, date precision, UUID case,
+# number formatting), and whether Skip's transpiled Android encoder already diverges from
+# Foundation's:
+#
+#   - id: golden_ios_round_trips
+#     given: { fixture: golden_ios, key_value: { hasCompletedOnboarding: true } }
+#     steps: [presentSettings, settings.save, flush]
+#     expect: store.saved equals $fixture:golden_ios
+#
+#   - id: golden_android_round_trips
+#     given: { fixture: golden_android, key_value: { hasCompletedOnboarding: true } }
+#     steps: [presentSettings, settings.save, flush]
+#     expect: store.saved equals $fixture:golden_android
+#
+# They live in reflex/tools/templates/migration_install.yaml rather than in this frozen file:
+# reflex/tools/verify-migration.sh materializes them into a throwaway copy of the specs tree
+# and runs both runners over it, so the frozen suite is never mutated by a migration check.
+#
+# Do NOT synthesize the captures from seeded_demo.json — that tests the assumption against
+# itself. data_compat is not considered passing until both files exist and round-trip.

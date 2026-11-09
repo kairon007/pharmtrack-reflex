@@ -1,0 +1,73 @@
+{
+  "appointments": [],
+  "medications": [],
+  "consultations": [],
+  "vitals": [
+    {
+      "id": "00000000-0000-4000-8000-000000000031",
+      "type": "weight",
+      "value": 78.2,
+      "date": "2026-10-31T12:00:00Z",
+      "notes": "Baseline"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000032",
+      "type": "weight",
+      "value": 75.5,
+      "date": "2026-11-06T12:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000033",
+      "type": "weight",
+      "value": 75.5,
+      "date": "2026-11-07T08:00:00Z",
+      "notes": "Same value as previous — exercises the 0.0% flat trend branch"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000034",
+      "type": "bloodPressure",
+      "value": 120,
+      "value2": 80,
+      "date": "2026-11-06T12:00:00Z",
+      "notes": "Complete composite — renders 120/80 mmHg"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000035",
+      "type": "bloodPressure",
+      "value": 130,
+      "date": "2026-11-07T09:00:00Z",
+      "notes": "value2 absent — valueLabel falls back to 0, rendering 130/0 mmHg"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000036",
+      "type": "bloodSugar",
+      "value": 0,
+      "date": "2026-11-05T12:00:00Z",
+      "notes": "Zero previous value — trendPercentage returns nil rather than dividing by zero"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000037",
+      "type": "bloodSugar",
+      "value": 95,
+      "date": "2026-11-07T10:00:00Z"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000038",
+      "type": "weight",
+      "value": 80.0,
+      "date": "2026-08-09T12:00:00Z",
+      "notes": "Exactly 90 days back — boundary for the .all range vs .ninetyDays cutoff"
+    }
+  ],
+  "logs": [],
+  "notificationSettings": {
+    "allNotificationsEnabled": true,
+    "medicationsEnabled": true,
+    "appointmentsEnabled": true,
+    "consultationsEnabled": true,
+    "lowStockEnabled": true,
+    "lowStockThreshold": 5,
+    "medicationReminderTime": "At time of event",
+    "appointmentReminderTime": "1 day before"
+  }
+}

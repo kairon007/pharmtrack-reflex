@@ -1,0 +1,406 @@
+defaults:
+  background:
+    colors:
+    - '#E8F0FE'
+    - '#F8FBFF'
+    direction: 180
+    type: linear
+project:
+  device: iPhone 16 Pro - Black Titanium - Portrait
+  name: Health Tracker
+  output_dir: Screenshots/Generated
+  output_size: iPhone6_9
+screenshots:
+  # iOS Screenshots
+  ios_home:
+    content:
+    - color: '#1A73E8'
+      content: Welcome, Amit
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Your daily health at a glance
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 33 17 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_vitals:
+    content:
+    - color: '#8E4EC6'
+      content: Your Vitals
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Track all your health metrics
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 34 27 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_heart_rate:
+    content:
+    - color: '#E91E63'
+      content: Heart Rate
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Real-time heart rate tracking
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 34 09 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_blood_pressure:
+    content:
+    - color: '#F44336'
+      content: Blood Pressure
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Monitor blood pressure levels
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 34 19 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_weight:
+    content:
+    - color: '#4CAF50'
+      content: Weight Tracking
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Track your weight progress
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 34 02 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_trends:
+    content:
+    - color: '#8E4EC6'
+      content: Weekly Trends
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Monitor your progress over time
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 35 40 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_history:
+    content:
+    - color: '#FF9800'
+      content: History
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: View your past records
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 36 41 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_settings:
+    content:
+    - color: '#607D8B'
+      content: Settings
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Customize your experience
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 36 49 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_measurements:
+    content:
+    - color: '#00BCD4'
+      content: Add Measurement
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Record your health data
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 37 43 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_chart:
+    content:
+    - color: '#9C27B0'
+      content: Health Chart
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Visualize your data
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 38 33 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  ios_dashboard:
+    content:
+    - color: '#3F51B5'
+      content: Dashboard
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Your health overview
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/Ios/Photo 30-03-26, 8 38 47 PM.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  # Android Screenshots
+  android_home:
+    content:
+    - color: '#1A73E8'
+      content: Health Tracker
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Your daily health at a glance
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/android/Screenshot_20260330-204910.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  android_vitals:
+    content:
+    - color: '#8E4EC6'
+      content: Your Vitals
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Track all your health metrics
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/android/Screenshot_20260330-204954.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  android_trends:
+    content:
+    - color: '#8E4EC6'
+      content: Weekly Trends
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Monitor your progress over time
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/android/Screenshot_20260330-205007.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  android_measurements:
+    content:
+    - color: '#00BCD4'
+      content: Add Measurement
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Record your health data
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/android/Screenshot_20260330-205017.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  android_record:
+    content:
+    - color: '#4CAF50'
+      content: Record Vitals
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: Save your health data
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/android/Screenshot_20260330-205021.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
+  android_details:
+    content:
+    - color: '#FF9800'
+      content: Vital Details
+      position:
+      - 50%
+      - 10%
+      size: 36
+      type: text
+      weight: bold
+    - content: View detailed metrics
+      position:
+      - 50%
+      - 18%
+      size: 18
+      type: text
+    - asset: screenshots/android/Screenshot_20260330-205034.png
+      frame: true
+      position:
+      - 50%
+      - 56%
+      scale: 0.95
+      type: image
