@@ -83,6 +83,42 @@ TARGETED_CSS = [
 ]
 
 
+CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+def build_og_card():
+    """Render the social share card.
+
+    The card is an HTML page (tools/og-card.html) rendered by headless Chrome
+    at 1200 x 630, so it uses the same typefaces as the site itself. If Chrome
+    is not installed, the committed card is left in place.
+    """
+    out = os.path.join(ROOT, "assets", "img", "og.png")
+    source = os.path.join(ROOT, "tools", "og-card.html")
+    if not os.path.exists(CHROME):
+        print("og: Chrome not found — keeping the committed share card")
+        return
+    try:
+        subprocess.run(
+            [
+                CHROME,
+                "--headless",
+                "--disable-gpu",
+                "--hide-scrollbars",
+                "--force-device-scale-factor=1",
+                "--window-size=1200,630",
+                "--screenshot=" + out,
+                "file://" + source,
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        sys.exit("og: headless Chrome failed to render the share card")
+    print("og: share card rendered")
+
+
 def build_screenshots():
     """Render the responsive webp derivatives of the four app screenshots.
 
@@ -645,5 +681,6 @@ def apply_content():
 
 if __name__ == "__main__":
     build_screenshots()
+    build_og_card()
     rebrand_css()
     apply_content()

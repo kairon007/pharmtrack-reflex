@@ -9,7 +9,7 @@
     "build:page": "python3 tools/build-page.py",
     "build:legal": "python3 tools/build-legal.py",
     "preview": "vite preview",
-    "check": "node tools/check-page.mjs . --skip tools --skip _legacy_html --skip dist",
+    "check": "node tools/check-page.mjs . --skip tools --skip dist",
     "check:dist": "node tools/check-page.mjs dist"
   },
   "devDependencies": {

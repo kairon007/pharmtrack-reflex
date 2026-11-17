@@ -14,7 +14,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SUPPORT_EMAIL = "support@pharmtrack.app"
-LEGAL_EMAIL = "legal@pharmtrack.app"
+PRIVACY_EMAIL = "privacy@pharmtrack.app"
+EULA_EMAIL = "creationsapk@gmail.com"
 SITE = "https://pharmtrack.app"
 
 # Each page is (slug, title, lede, [blocks], foot_html)
@@ -69,7 +70,7 @@ PAGES = [
             ("h2", "10. Changes to This Policy"),
             ("p", "We may update this policy occasionally. We will notify users of significant changes through the app or website."),
             ("h2", "11. Contact"),
-            ("p", "For any privacy question, write to <a href=\"mailto:%s\">%s</a>." % (LEGAL_EMAIL, LEGAL_EMAIL)),
+            ("p", "For any privacy question, write to <a href=\"mailto:%s\">%s</a>." % (PRIVACY_EMAIL, PRIVACY_EMAIL)),
         ],
         None,
     ),
@@ -241,7 +242,7 @@ PAGES = [
             ("h2", "21. Contact Us"),
             ("p", "For questions about this EULA:"),
             ("ul", "<li>Email: <a href=\"mailto:%s\">%s</a></li>"
-                   "<li>Website: <a href=\"%s\">pharmtrack.app</a></li>" % (LEGAL_EMAIL, LEGAL_EMAIL, SITE)),
+                   "<li>Website: <a href=\"%s\">pharmtrack.app</a></li>" % (EULA_EMAIL, EULA_EMAIL, SITE)),
             ("h2", "Acknowledgment"),
             ("p", "By downloading and installing PharmTrack, you acknowledge that:"),
             ("ul", "<li>You have read and understood this EULA</li>"

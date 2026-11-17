@@ -78,8 +78,3 @@ the simulator's app container, walk the four screens and capture with
 (`.github/workflows/deploy-netlify.yml`). The extensionless routes
 (`/privacy`, `/terms`, `/eula`, `/support`, `/delete-account`) are mapped in
 `public/_redirects`.
-
-## `web/_legacy_html/`
-
-The previous static site, kept for reference. It is not part of the build and
-not published.
