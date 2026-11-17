@@ -1,1 +1,10 @@
-/* /index.html 200
+# PharmTrack marketing site — Netlify redirects.
+#
+# The site is a static multi-page build, so every real page is a real file.
+# These rules only map the extensionless URLs onto them; there is no SPA
+# fallback, because a catch-all would shadow the legal pages.
+/privacy         /privacy.html         200
+/terms           /terms.html           200
+/eula            /eula.html            200
+/support         /support.html         200
+/delete-account  /delete-account.html  200

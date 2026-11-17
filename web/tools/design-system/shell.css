@@ -1,0 +1,329 @@
+/* ============================================================
+   Landing page design system — shell layer
+Sticky nav, hero backdrop, hero buttons, footer.
+   ============================================================ */
+
+.s-gnav {
+  z-index: 50;
+  pointer-events: none;
+  justify-content: center;
+  padding: 20px 0 0;
+  display: flex;
+  position: sticky;
+  top: 0;
+}
+.s-gnav-in {
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  background: #fff9;
+  border: 1px solid #ffffffbf;
+  border-radius: 20px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  max-width: 1360px;
+  padding: 14px 18px 14px 22px;
+  display: flex;
+  box-shadow:
+    0 10px 36px -12px #1918141f,
+    inset 0 1px #ffffffe6;
+}
+.site .s-brand {
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  display: flex;
+}
+.s-gnav-end,
+.s-gnav-links {
+  align-items: center;
+  gap: 24px;
+  display: flex;
+}
+.site .s-gnav-links a {
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.site .s-gnav-links a:hover {
+  color: var(--ink);
+}
+.s-gnav-div {
+  background: var(--ink-3);
+  opacity: 0.4;
+  width: 1px;
+  height: 24px;
+}
+.site .s-gnav-btn {
+  background: var(--ink);
+  height: 40px;
+  color: var(--on-ink);
+  border-radius: 11px;
+  align-items: center;
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+}
+.s-gnav-soon {
+  background: var(--accent-soft);
+  height: 36px;
+  color: var(--accent-ink);
+  border-radius: 999px;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+}
+@container site (width<=980px) {
+  .s-gnav {
+    padding: 12px 12px 0;
+  }
+}
+@container site (width<=760px) {
+  .s-gnav {
+    padding: 10px 12px 0;
+  }
+  .s-gnav-in {
+    padding: 10px 10px 10px 14px;
+  }
+  .s-gnav-links,
+  .s-gnav-div {
+    display: none;
+  }
+}
+.s-sky {
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(#ffcfb4 0%, #ffe2d0 45%, #ffeee3 80%, #ffece0 100%);
+  position: absolute;
+  inset: 0;
+}
+.s-cloud {
+  filter: blur(30px);
+  opacity: 0.45;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+}
+.s-cloud.c1 {
+  width: 360px;
+  height: 120px;
+  top: 120px;
+  left: -60px;
+}
+.s-cloud.c3 {
+  width: 340px;
+  height: 110px;
+  top: 90px;
+  right: -40px;
+}
+.site .s-hx-btn {
+  border-radius: 18px;
+  justify-content: center;
+  align-items: center;
+  height: 60px;
+  padding: 0 30px;
+  font-size: 17px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+}
+.site .s-hx-btn.dark {
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.site .s-hx-btn.light {
+  color: #191814;
+  background: #fff;
+  box-shadow: 0 8px 24px #19181414;
+}
+.s-ft {
+  border-top: 1px solid var(--line);
+  background: var(--band);
+  margin-top: 24px;
+}
+.s-ft-card {
+  background: var(--band);
+  position: relative;
+  overflow: hidden;
+}
+.s-ft-top {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 56px 64px 0;
+}
+.s-foot {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 48px;
+  display: flex;
+}
+.s-foot-about {
+  flex-direction: column;
+  gap: 16px;
+  max-width: 330px;
+  display: flex;
+}
+.s-foot-about p {
+  color: var(--ink-2);
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+.s-foot-cols {
+  flex-wrap: wrap;
+  gap: 80px;
+  display: flex;
+}
+.s-foot-h {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.s-foot ul {
+  flex-direction: column;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+}
+.site .s-foot li a {
+  font-size: 15.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.s-ft-art {
+  aspect-ratio: 1360/330;
+  max-width: 1360px;
+  margin: 8px auto 0;
+  position: relative;
+}
+.s-ft-ill {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+@container site (width<=760px) {
+  .s-ft-top {
+    padding: 36px 24px 0;
+  }
+  .s-foot {
+    gap: 36px;
+  }
+  .s-foot-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px 24px;
+    width: 100%;
+    display: grid;
+  }
+  .s-ft-art {
+    aspect-ratio: auto;
+    height: 172px;
+    margin-top: 32px;
+    overflow: hidden;
+  }
+  .s-ft-ill {
+    width: 707px;
+    margin-left: -361px;
+    left: 50%;
+    right: auto;
+  }
+}
+
+/* ------------------------------------------------------------ prose pages --
+   Minimal, token-driven layout for the pages the landing page links to:
+   privacy policy, terms, delete account, support. Same tokens, same type,
+   no landing furniture. Use when the legal routes must exist as real pages
+   rather than links into another product. */
+.s-page {
+  padding: clamp(48px, 7vw, 96px) 0;
+}
+.s-page-in {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 40px);
+}
+.s-page h1 {
+  font-family: "Bricolage Grotesque Variable", sans-serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+}
+.s-page-lede {
+  color: var(--ink-2);
+  font-size: 1.06rem;
+  margin: 0 0 2.5rem;
+}
+.s-page h2 {
+  font-family: "Bricolage Grotesque Variable", sans-serif;
+  font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 2.5rem 0 0.75rem;
+}
+.s-page h3 {
+  font-weight: 700;
+  margin: 1.75rem 0 0.5rem;
+}
+.s-page p,
+.s-page li {
+  color: var(--ink-2);
+  font-size: 1.06rem;
+  line-height: 1.65;
+}
+.s-page ul,
+.s-page ol {
+  padding-left: 1.25em;
+  margin: 0.75rem 0;
+}
+.s-page li {
+  margin: 0.4rem 0;
+}
+.s-page a {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.s-page a:hover {
+  color: var(--accent);
+}
+.s-page hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2.5rem 0;
+}
+.s-page-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2rem;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.s-page-back:hover {
+  color: var(--ink);
+}
+.s-page-foot {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 0.9rem;
+}

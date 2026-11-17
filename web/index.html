@@ -1,13 +1,1606 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PharmTrack - Your Personal Health Companion</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PharmTrack: Your private medication and health companion</title>
+    <meta name="description" content="PharmTrack keeps your medications, consultations, appointments and vital signs in one place. It works fully offline and your health data never leaves your device." />
+    <link rel="canonical" href="https://pharmtrack.app" />
+    <link rel="icon" href="assets/img/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+    <meta name="theme-color" content="#f4f8f7" />
+    <meta name="color-scheme" content="light" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PharmTrack" />
+    <meta property="og:title" content="PharmTrack: Your private medication and health companion" />
+    <meta property="og:description" content="PharmTrack keeps your medications, consultations, appointments and vital signs in one place. It works fully offline and your health data never leaves your device." />
+    <meta property="og:url" content="https://pharmtrack.app" />
+    <meta property="og:image" content="assets/img/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="PharmTrack — Your private medication and health companion" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="PharmTrack: Your private medication and health companion" />
+    <meta name="twitter:description" content="PharmTrack keeps your medications, consultations, appointments and vital signs in one place. It works fully offline and your health data never leaves your device." />
+    <meta name="twitter:image" content="assets/img/og.png" />
+    <meta name="twitter:image:alt" content="PharmTrack — Your private medication and health companion" />
+    <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://pharmtrack.app#organization",
+              "name": "PharmTrack",
+              "url": "https://pharmtrack.app",
+              "logo": "assets/img/apple-touch-icon.png",
+              "email": "support@pharmtrack.app"
+            },
+            {
+              "@type": "WebSite",
+              "name": "PharmTrack",
+              "url": "https://pharmtrack.app",
+              "publisher": {
+                "@id": "https://pharmtrack.app#organization"
+              }
+            },
+            {
+              "@type": "MobileApplication",
+              "name": "PharmTrack",
+              "description": "PharmTrack keeps your medications, consultations, appointments and vital signs in one place. It works fully offline and your health data never leaves your device.",
+              "url": "https://pharmtrack.app",
+              "operatingSystem": "iOS, Android",
+              "applicationCategory": "MedicalApplication",
+              "publisher": {
+                "@id": "https://pharmtrack.app#organization"
+              },
+              "offers": {
+                "@type": "Offer",
+                "name": "Free",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          ]
+        }
+      </script>
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/shell.css" />
+    <link rel="stylesheet" href="assets/css/sections.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="site">
+      <a class="s-skip" href="#main">Skip to content</a
+      ><svg width="0" height="0" aria-hidden="true" style="position: absolute; overflow: hidden">
+        <symbol id="i-check-bold" viewBox="0 0 256 256">
+          <path
+            d="M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z"
+          ></path>
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 256 256">
+          <path
+            d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"
+          ></path>
+        </symbol>
+        <symbol id="i-chev-r" viewBox="0 0 256 256">
+          <path
+            d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"
+          ></path>
+        </symbol>
+        <symbol id="i-sparkle-fill" viewBox="0 0 256 256">
+          <path
+            d="M208,144a15.78,15.78,0,0,1-10.42,14.94L146,178l-19,51.62a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88L78,110l19-51.62a15.92,15.92,0,0,1,29.88,0L146,110l51.62,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z"
+          ></path>
+        </symbol>
+        <symbol id="i-flame-fill" viewBox="0 0 256 256">
+          <path
+            d="M173.79,51.48a221.25,221.25,0,0,0-41.67-34.34,8,8,0,0,0-8.24,0A221.25,221.25,0,0,0,82.21,51.48C54.59,80.48,40,112.47,40,144a88,88,0,0,0,176,0C216,112.47,201.41,80.48,173.79,51.48ZM96,184c0-27.67,22.53-47.28,32-54.3,9.48,7,32,26.63,32,54.3a32,32,0,0,1-64,0Z"
+          ></path>
+        </symbol>
+        <symbol id="i-calendar-check" viewBox="0 0 256 256">
+          <path
+            d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-38.34-85.66a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L116,164.69l42.34-42.35A8,8,0,0,1,169.66,122.34Z"
+          ></path>
+        </symbol>
+        <symbol id="i-list-checks" viewBox="0 0 256 256">
+          <path
+            d="M224,128a8,8,0,0,1-8,8H128a8,8,0,0,1,0-16h88A8,8,0,0,1,224,128ZM128,72h88a8,8,0,0,0,0-16H128a8,8,0,0,0,0,16Zm88,112H128a8,8,0,0,0,0,16h88a8,8,0,0,0,0-16ZM82.34,42.34,56,68.69,45.66,58.34A8,8,0,0,0,34.34,69.66l16,16a8,8,0,0,0,11.32,0l32-32A8,8,0,0,0,82.34,42.34Zm0,64L56,132.69,45.66,122.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Zm0,64L56,196.69,45.66,186.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Z"
+          ></path>
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 256 256">
+          <path
+            d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"
+          ></path>
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 256 256">
+          <path
+            d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"
+          ></path>
+        </symbol>
+        <symbol id="i-dumbbell" viewBox="0 0 256 256">
+          <path
+            d="M248,120h-8V88a16,16,0,0,0-16-16H208V64a16,16,0,0,0-16-16H168a16,16,0,0,0-16,16v56H104V64A16,16,0,0,0,88,48H64A16,16,0,0,0,48,64v8H32A16,16,0,0,0,16,88v32H8a8,8,0,0,0,0,16h8v32a16,16,0,0,0,16,16H48v8a16,16,0,0,0,16,16H88a16,16,0,0,0,16-16V136h48v56a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16v-8h16a16,16,0,0,0,16-16V136h8a8,8,0,0,0,0-16ZM32,168V88H48v80Zm56,24H64V64H88V192Zm104,0H168V64h24V175.82c0,.06,0,.12,0,.18s0,.12,0,.18V192Zm32-24H208V88h16Z"
+          ></path>
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 256 256">
+          <path
+            d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56,104.11,104.11,0,0,0,200,160a106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z"
+          ></path>
+        </symbol>
+        <symbol id="i-calendar" viewBox="0 0 256 256">
+          <path
+            d="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Z"
+          ></path>
+        </symbol>
+        <symbol id="i-trophy" viewBox="0 0 256 256">
+          <path
+            d="M232,64H208V48a8,8,0,0,0-8-8H56a8,8,0,0,0-8,8V64H24A16,16,0,0,0,8,80V96a40,40,0,0,0,40,40h3.65A80.13,80.13,0,0,0,120,191.61V216H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V191.58c31.94-3.23,58.44-25.64,68.08-55.58H208a40,40,0,0,0,40-40V80A16,16,0,0,0,232,64ZM48,120A24,24,0,0,1,24,96V80H48v32q0,4,.39,8Zm144-8.9c0,35.52-29,64.64-64,64.9a64,64,0,0,1-64-64V56H192ZM232,96a24,24,0,0,1-24,24h-.5a81.81,81.81,0,0,0,.5-8.9V80h24Z"
+          ></path>
+        </symbol>
+      </svg>
+      <header class="s-gnav">
+        <div class="s-gnav-in">
+          <a class="s-brand" href="/" aria-label="PharmTrack home"
+            ><img src="assets/img/mark.png" width="34" height="34" alt="" style="border-radius: 7.6px; flex-shrink: 0" /><span class="disp" style="font-size: 23px; font-weight: 800; letter-spacing: -0.02em">PharmTrack</span></a
+          >
+          <div class="s-gnav-end">
+            <nav class="s-gnav-links" aria-label="Main">
+              <a href="/#features">Features</a><a href="/#pricing">Pricing</a><a href="/#faq">FAQ</a
+              ><a href="/support.html">Support</a>
+            </nav>
+            <span class="s-gnav-div" aria-hidden="true"></span><span class="s-gnav-soon">Free</span>
+          </div>
+        </div>
+      </header>
+      <main id="main">
+        <section class="s-hx" aria-labelledby="hero-title">
+          <div class="s-sky" aria-hidden="true">
+            <span class="s-hx-sun"></span><span class="s-cloud c1"></span><span class="s-cloud c3"></span>
+          </div>
+          <div class="s-hx-copy">
+            <h1 id="hero-title" class="s-hx-h1 rise">
+              <span class="sr">Own your doses, one routine at a time.</span
+              ><span aria-hidden="true"
+                ><span class="s-hx-l1"
+                  ><span>Own your</span> <span class="s-hx-w" data-hero-word><i class="s-hw">doses,</i></span></span
+                ><span><br />one routine<br />at a time<span style="color: var(--accent)">.</span></span></span
+              >
+            </h1>
+            <p class="s-hx-lede rise" style="animation-delay: 0.1s">
+              PharmTrack is your medication and health companion. Every dose, visit, appointment and reading in one private app that works without a signal — and without an account.
+            </p>
+            <div class="s-hx-cta rise" style="animation-delay: 0.2s">
+              <a class="s-hx-btn dark press" href="#pricing">Download free</a
+              ><a class="s-hx-btn light press" href="#features">See the features</a>
+            </div>
+          </div>
+          <div class="s-hx-art" role="img" aria-label="PharmTrack home screen showing today's plan: two of seven doses taken, Vitamin D3 as the next dose, and three upcoming appointments.">
+            <div class="s-device s-hx-phone">
+              <div class="s-bezel">
+                <div class="s-screen">
+                  <img
+                    src="assets/img/shot-hero-1170.webp"
+                    srcset="assets/img/shot-hero-400.webp 400w,
+                      assets/img/shot-hero-800.webp 800w,
+                      assets/img/shot-hero-1170.webp 1170w
+                    "
+                    alt="PharmTrack home screen showing today's plan: two of seven doses taken, Vitamin D3 as the next dose, and three upcoming appointments."
+                    sizes="(max-width: 600px) 234px, 281px"
+                    loading="eager"
+                    decoding="sync"
+                    fetchpriority="high"
+                    width="1170"
+                    height="2532"
+                    class="s-shot"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="s-glass g1 c-sun pop" aria-hidden="true" style="animation-delay: 0.6s">
+              <span class="s-mini-i"
+                ><svg class="ic" width="18" height="18"><use href="#i-sun"></use></svg></span
+              ><span class="s-glass-t"><b>Dose taken</b><span>Vitamin D3 · 9:00 AM</span></span
+              ><span class="s-mini-ok"
+                ><svg class="ic" width="13" height="13"><use href="#i-check-bold"></use></svg
+              ></span>
+            </div>
+            <div class="s-glass g2 c-tangerine pop" aria-hidden="true" style="animation-delay: 1.2s">
+              <span class="s-mini-i"
+                ><svg class="ic" width="18" height="18"><use href="#i-clock"></use></svg></span
+              ><span class="s-glass-t"><b>Next dose</b><span>Lisinopril · 8:00 PM</span></span
+              ><span class="s-mini-now">Soon</span>
+            </div>
+            <div class="s-glass g3 pop" aria-hidden="true" style="animation-delay: 1.8s">
+              <span class="s-glass-col"
+                ><span class="s-glass-row"
+                  ><svg class="ic" width="18" height="18" style="color: var(--accent)">
+                    <use href="#i-flame-fill"></use></svg
+                  ><b>5-day dose streak</b></span
+                ><span class="s-week"
+                  ><span class="s-day on"><i>M</i></span
+                  ><span class="s-day on"><i>T</i></span
+                  ><span class="s-day on"><i>W</i></span
+                  ><span class="s-day on"><i>T</i></span
+                  ><span class="s-day on"><i>F</i></span
+                  ><span class="s-day"><i>S</i></span
+                  ><span class="s-day"><i>S</i></span></span
+                ></span
+              >
+            </div>
+            <div class="s-glass g4 pop" aria-hidden="true" style="animation-delay: 2.4s">
+              <svg width="58" height="58" viewBox="0 0 88 88" style="transform: rotate(-90deg)">
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="34"
+                  style="fill: none; stroke: rgba(255, 255, 255, 0.7); stroke-width: 10"
+                ></circle>
+                <circle
+                  cx="44"
+                  cy="44"
+                  r="34"
+                  pathLength="100"
+                  style="
+                    fill: none;
+                    stroke: var(--accent);
+                    stroke-width: 10;
+                    stroke-linecap: round;
+                    stroke-dasharray: 100;
+                    stroke-dashoffset: 29;
+                  "
+                ></circle></svg
+              ><span class="s-glass-t"><b class="disp" style="font-size: 22px">71%</b><span>of doses on time</span></span>
+            </div>
+          </div>
+        </section>
+        <section class="s-up" aria-labelledby="up-title">
+          <svg class="s-up-swirl" viewBox="0 0 1440 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <filter id="up-spray" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="n"></feTurbulence>
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="n"
+                  scale="34"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                  result="d"
+                ></feDisplacementMap>
+                <feGaussianBlur in="d" stdDeviation="1.2"></feGaussianBlur>
+              </filter>
+            </defs>
+            <g filter="url(#up-spray)" fill="none" stroke-linecap="round">
+              <path d="M-60 120C120 60 260 180 240 340S120 620 300 720" stroke="#c6e3de" stroke-width="150"></path>
+              <path
+                d="M1500 520C1340 470 1220 560 1250 690S1380 860 1190 900"
+                stroke="#a8d2cb"
+                stroke-width="130"
+              ></path>
+            </g>
+          </svg>
+          <div class="s-up-stack" aria-hidden="true">
+            <div class="s-ev c-sky" style="transform: translate(0px, 0px) rotate(5deg); z-index: 20" data-ev>
+              <div class="s-ev-top">
+                <span class="s-ev-when">Today</span><span class="s-ev-date">Tue 17 Nov</span>
+              </div>
+              <div class="s-ev-row">
+                <span class="s-ev-chip"
+                  ><svg class="ic" width="22" height="22"><use href="#i-calendar-check"></use></svg></span
+                ><span class="s-ev-t"><b>Dr. Michael Smith</b><span>2:30 pm</span></span
+                ><span class="s-ev-bell"
+                  ><svg class="ic" width="15" height="15"><use href="#i-bell"></use></svg
+                ></span>
+              </div>
+            </div>
+            <div class="s-ev c-stone" style="transform: translate(-10px, -6px) rotate(-1deg); z-index: 19" data-ev>
+              <div class="s-ev-top"><span class="s-ev-when">Today</span><span class="s-ev-date">Tue 17 Nov</span></div>
+              <div class="s-ev-row">
+                <span class="s-ev-chip"
+                  ><svg class="ic" width="22" height="22"><use href="#i-clock"></use></svg></span
+                ><span class="s-ev-t"><b>Ibuprofen · 400mg</b><span>Every 6 hours</span></span
+                ><span class="s-ev-bell"
+                  ><svg class="ic" width="15" height="15"><use href="#i-bell"></use></svg
+                ></span>
+              </div>
+            </div>
+            <div class="s-ev c-mint" style="transform: translate(-20px, -12px) rotate(-7deg); z-index: 18" data-ev>
+              <div class="s-ev-top">
+                <span class="s-ev-when">Tomorrow</span><span class="s-ev-date">Wed 18 Nov</span>
+              </div>
+              <div class="s-ev-row">
+                <span class="s-ev-chip"
+                  ><svg class="ic" width="22" height="22"><use href="#i-trophy"></use></svg></span
+                ><span class="s-ev-t"><b>6-day dose streak</b><span>Keep it going</span></span
+                ><span class="s-ev-bell"
+                  ><svg class="ic" width="15" height="15"><use href="#i-bell"></use></svg
+                ></span>
+              </div>
+            </div>
+            <div
+              class="s-ev c-tangerine"
+              style="transform: translate(-30px, -18px) rotate(-13deg); z-index: 17"
+              data-ev
+            >
+              <div class="s-ev-top"><span class="s-ev-when">Thursday</span><span class="s-ev-date">Thu 19 Nov</span></div>
+              <div class="s-ev-row">
+                <span class="s-ev-chip"
+                  ><svg class="ic" width="22" height="22"><use href="#i-sparkle-fill"></use></svg></span
+                ><span class="s-ev-t"><b>Dr. Elena Ruiz</b><span>10:00 am</span></span
+                ><span class="s-ev-bell"
+                  ><svg class="ic" width="15" height="15"><use href="#i-bell"></use></svg
+                ></span>
+              </div>
+            </div>
+            <div class="s-ev c-iris" style="transform: translate(-40px, -24px) rotate(-19deg); z-index: 16" data-ev>
+              <div class="s-ev-top">
+                <span class="s-ev-when">Next week</span><span class="s-ev-date">Fri 20 Nov</span>
+              </div>
+              <div class="s-ev-row">
+                <span class="s-ev-chip"
+                  ><svg class="ic" width="22" height="22"><use href="#i-calendar"></use></svg></span
+                ><span class="s-ev-t"><b>Annual checkup</b><span>5:15 pm</span></span
+                ><span class="s-ev-bell"
+                  ><svg class="ic" width="15" height="15"><use href="#i-bell"></use></svg
+                ></span>
+              </div>
+            </div>
+            <div class="s-ev c-sun" style="transform: translate(-50px, -30px) rotate(-25deg); z-index: 15" data-ev>
+              <div class="s-ev-top">
+                <span class="s-ev-when">Next week</span><span class="s-ev-date">Sat 21 Nov</span>
+              </div>
+              <div class="s-ev-row">
+                <span class="s-ev-chip"
+                  ><svg class="ic" width="22" height="22"><use href="#i-sun"></use></svg></span
+                ><span class="s-ev-t"><b>Lisinopril · 5mg</b><span>8:00 pm</span></span
+                ><span class="s-ev-bell"
+                  ><svg class="ic" width="15" height="15"><use href="#i-bell"></use></svg
+                ></span>
+              </div>
+            </div>
+          </div>
+          <span class="s-up-tag t1 floaty" aria-hidden="true">Today</span
+          ><span class="s-up-tag t2 floaty" aria-hidden="true" style="animation-delay: -2s">In 2 hours</span>
+          <h2 id="up-title" class="disp s-up-text">
+            <span class="sr"
+              >From the first dose to the last, PharmTrack lines up what is coming next so nothing slips by unseen.</span
+            ><span aria-hidden="true"
+              ><span aria-hidden="true"><span class="w" style="--i: 0">From</span> <span class="w" style="--i: 1">the</span> <span class="w" style="--i: 2">first</span><span class="s-up-ic c-sky" aria-hidden="true"><svg class="ic" width="20" height="20"><use href="#i-calendar-check"></use></svg></span> <span class="w" style="--i: 3">dose</span> <span class="w" style="--i: 4">to</span> <span class="w" style="--i: 5">the</span> <span class="w" style="--i: 6">last,</span><span class="s-up-ic c-tangerine" aria-hidden="true"><svg class="ic" width="20" height="20"><use href="#i-sparkle-fill"></use></svg></span> <span class="w" style="--i: 7">PharmTrack</span> <span class="w" style="--i: 8">lines</span> <span class="w" style="--i: 9">up</span> <span class="w" style="--i: 10">what’s</span> <span class="w" style="--i: 11">coming</span> <span class="w" style="--i: 12">next</span><span class="s-up-ic c-sun" aria-hidden="true"><svg class="ic" width="20" height="20"><use href="#i-bell"></use></svg></span> <span class="w" style="--i: 13">so</span> <span class="w" style="--i: 14">nothing</span> <span class="w" style="--i: 15">slips</span> <span class="w" style="--i: 16">by</span> <span class="w" style="--i: 17">unseen.</span></span></span
+            >
+          </h2>
+          <div class="s-up-row" aria-hidden="true">
+            <span class="u1"
+              ><svg class="ic a-cal" width="22" height="22"><use href="#i-calendar-check"></use></svg></span
+            ><span class="u2"
+              ><svg class="ic a-bell" width="22" height="22"><use href="#i-bell"></use></svg></span
+            ><span class="u3"
+              ><svg class="ic a-flame" width="22" height="22"><use href="#i-flame-fill"></use></svg></span
+            ><svg class="s-cursor" width="26" height="26" viewBox="0 0 24 24">
+              <path
+                d="M5 3l14 7.2-6.1 1.6L10 18z"
+                fill="#1b2725"
+                stroke="#ffffff"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+              ></path>
+            </svg>
+          </div>
+        </section>
+        <section id="features" class="s-sec" aria-labelledby="features-title">
+          <div class="s-wrap">
+            <div class="s-fhead s-fhead-c">
+              <span class="s-eyebrow">How it works</span>
+              <h2 id="features-title" class="disp s-h2">Everything your health day needs, in one place</h2>
+              <p class="s-body" style="max-width: 60ch">
+                Medication, reminders, appointments, records and vitals — read at a glance, stored on your own phone, and never uploaded anywhere.
+              </p>
+            </div>
+            <div class="s-rows">
+              <div class="s-row c-sky">
+                <div class="s-row-copy">
+                  <h3 class="disp s-h3">Never miss a dose</h3>
+                  <p class="s-body">
+                    Every medication carries its dosage, instructions and time of day. The day's schedule groups itself into morning, afternoon and evening, and each dose is ticked off as you take it.
+                  </p>
+                </div>
+                <figure
+                  class="s-row-art s-kn-wrap"
+                  aria-label="PharmTrack medications screen showing the day's schedule grouped into morning, afternoon and evening, with Ibuprofen flagged as low stock."
+                  style="margin: 0"
+                >
+                  <div class="s-kn" aria-hidden="true">
+                    <svg class="s-kn-orbit" viewBox="-250 -250 500 500">
+                      <g class="o1">
+                        <circle r="168"></circle>
+                        <g transform="rotate(-40) translate(168 0) rotate(90)">
+                          <path
+                            d="M0 -6L8 0L0 6"
+                            fill="none"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </g>
+                        <g transform="rotate(140) translate(168 0) rotate(90)">
+                          <path
+                            d="M0 -6L8 0L0 6"
+                            fill="none"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </g>
+                      </g>
+                      <g class="o2">
+                        <circle r="226"></circle>
+                        <g transform="rotate(20) translate(226 0) rotate(90)">
+                          <path
+                            d="M0 -6L8 0L0 6"
+                            fill="none"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </g>
+                        <g transform="rotate(200) translate(226 0) rotate(90)">
+                          <path
+                            d="M0 -6L8 0L0 6"
+                            fill="none"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          ></path>
+                        </g>
+                      </g>
+                    </svg>
+                    <div class="s-kn-stage">
+                      <div class="s-device s-kn-phone">
+                        <div class="s-bezel">
+                          <div class="s-screen">
+                            <img
+                              src="assets/img/shot-timeline-1170.webp"
+                    srcset="assets/img/shot-timeline-400.webp 400w,
+                      assets/img/shot-timeline-800.webp 800w,
+                      assets/img/shot-timeline-1170.webp 1170w
+                    "
+                              alt="PharmTrack medications screen showing the day's schedule grouped into morning, afternoon and evening, with Ibuprofen flagged as low stock."
+                              sizes="(max-width: 760px) 195px, 226px"
+                              loading="lazy"
+                              decoding="async"
+                              width="1170"
+                              height="2532"
+                              class="s-shot"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="s-kn-card k1 c-sun">
+                      <span class="s-ev-chip"
+                        ><svg class="ic" width="20" height="20"><use href="#i-sun"></use></svg></span
+                      ><span class="s-ev-t"><b>Vitamin D3</b><span>8:00 am</span></span
+                      ><span class="s-mini-ok"
+                        ><svg class="ic" width="13" height="13"><use href="#i-check-bold"></use></svg
+                      ></span>
+                    </div>
+                    <div class="s-kn-card k2 c-tangerine">
+                      <span class="s-ev-chip"
+                        ><svg class="ic" width="20" height="20"><use href="#i-list-checks"></use></svg></span
+                      ><span class="s-ev-t"><b>Next dose</b><span>Lisinopril · 8:00 PM</span></span
+                      ><span class="s-kn-now"><span class="s-kn-dot"></span>Next</span>
+                    </div>
+                    <div class="s-kn-card k3">
+                      <svg class="ic" width="18" height="18" style="color: var(--ink-2)">
+                        <use href="#i-clock"></use></svg
+                      ><b class="s-kn-free">As needed</b>
+                    </div>
+                    <div class="s-kn-card k4 c-iris">
+                      <span class="s-ev-chip"
+                        ><svg class="ic" width="20" height="20"><use href="#i-calendar-check"></use></svg></span
+                      ><span class="s-ev-t"><b>Dr. Michael Smith</b><span>Visit · 2:30 pm</span></span>
+                    </div>
+                  </div>
+                </figure>
+              </div>
+              <div class="s-row s-flip c-sun">
+                <div class="s-row-copy">
+                  <h3 class="disp s-h3">Reminders that actually reach you</h3>
+                  <p class="s-body">
+                    Choose the moment you want to be nudged — at the time of the dose, or five minutes, an hour or a day before. Appointments get the same treatment, and a low-stock warning arrives before you run out.
+                  </p>
+                </div>
+                <figure
+                  class="s-row-art s-nt-wrap"
+                  aria-label="A lock screen notification from PharmTrack reminding you to take a dose."
+                  style="margin: 0"
+                >
+                  <div class="s-nt" aria-hidden="true">
+                    <div class="s-nt-phone">
+                      <span class="s-nt-island"></span><span class="s-nt-date">Tuesday, 17 November</span
+                      ><span class="s-nt-time">9:00</span>
+                    </div>
+                    <div class="s-nt-card back">
+                      <img src="assets/img/mark.png" width="34" height="34" alt="" style="border-radius: 7.6px; flex-shrink: 0" /><span class="s-nt-body"><span>Next dose at 8:00 PM · Lisinopril 5mg</span></span
+                      ><span class="s-nt-now">now</span>
+                    </div>
+                    <div class="s-nt-card front">
+                      <img src="assets/img/mark.png" width="40" height="40" alt="" style="border-radius: 8.9px; flex-shrink: 0" /><span class="s-nt-body"
+                        ><b>PharmTrack</b><span>Vitamin D3 · 1000IU — take with food</span></span
+                      ><span class="s-nt-now">now</span>
+                    </div>
+                  </div>
+                </figure>
+              </div>
+              <div class="s-row c-tangerine">
+                <div class="s-row-copy">
+                  <h3 class="disp s-h3">Your records, kept safe</h3>
+                  <p class="s-body">
+                    Every consultation is stored with the doctor, the specialty and the note you wrote afterwards. Nothing is uploaded, nothing is profiled, and there is no analytics SDK in the app.
+                  </p>
+                </div>
+                <figure
+                  class="s-row-art s-in-wrap"
+                  aria-label="PharmTrack consultations screen listing six active treatments with the doctor, specialty and date of the last visit."
+                  style="margin: 0"
+                >
+                  <div class="s-in" aria-hidden="true">
+                    <div class="s-pd-conf">
+                      <i
+                        style="
+                          left: 33.4%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-4);
+                          --r: 274deg;
+                          --sx: -24px;
+                          animation-duration: 7.6s;
+                          animation-delay: -0.5s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 57.8%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-2);
+                          --r: 35deg;
+                          --sx: -14px;
+                          animation-duration: 6.1s;
+                          animation-delay: -4.3s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 54.8%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-5);
+                          --r: 114deg;
+                          --sx: -24px;
+                          animation-duration: 9.3s;
+                          animation-delay: -1.2s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 58%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-6);
+                          --r: 68deg;
+                          --sx: 14px;
+                          animation-duration: 9.9s;
+                          animation-delay: -0.5s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 16.6%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-2);
+                          --r: 349deg;
+                          --sx: -14px;
+                          animation-duration: 8.3s;
+                          animation-delay: -5.6s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 57.7%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-5);
+                          --r: 32deg;
+                          --sx: -24px;
+                          animation-duration: 7.5s;
+                          animation-delay: -5.5s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 22.4%;
+                          width: 9px;
+                          height: 12px;
+                          border-radius: 2px;
+                          background: var(--cd-4);
+                          --r: 232deg;
+                          --sx: 14px;
+                          animation-duration: 9.1s;
+                          animation-delay: -4.7s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 26.4%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-5);
+                          --r: 294deg;
+                          --sx: 14px;
+                          animation-duration: 8.8s;
+                          animation-delay: -2.4s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 49.5%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-5);
+                          --r: 37deg;
+                          --sx: -24px;
+                          animation-duration: 8.9s;
+                          animation-delay: -2.9s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 42.3%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-7);
+                          --r: 20deg;
+                          --sx: -24px;
+                          animation-duration: 6.6s;
+                          animation-delay: -4.9s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 55.5%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-2);
+                          --r: 254deg;
+                          --sx: 24px;
+                          animation-duration: 7.4s;
+                          animation-delay: -3.5s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 82%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-3);
+                          --r: 31deg;
+                          --sx: 14px;
+                          animation-duration: 7.9s;
+                          animation-delay: -6.6s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 57.3%;
+                          width: 9px;
+                          height: 12px;
+                          border-radius: 2px;
+                          background: var(--cd-2);
+                          --r: 342deg;
+                          --sx: 14px;
+                          animation-duration: 7.1s;
+                          animation-delay: -3.9s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 91.4%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-7);
+                          --r: 30deg;
+                          --sx: -14px;
+                          animation-duration: 6.7s;
+                          animation-delay: -1.2s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 30%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-1);
+                          --r: 254deg;
+                          --sx: -24px;
+                          animation-duration: 7.6s;
+                          animation-delay: -9.2s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 45.2%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-3);
+                          --r: 281deg;
+                          --sx: 14px;
+                          animation-duration: 9.5s;
+                          animation-delay: -8.2s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 42%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-2);
+                          --r: 118deg;
+                          --sx: -14px;
+                          animation-duration: 8.7s;
+                          animation-delay: -3.8s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 19.6%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-4);
+                          --r: 301deg;
+                          --sx: -14px;
+                          animation-duration: 8.6s;
+                          animation-delay: -0.1s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 29.5%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-1);
+                          --r: 289deg;
+                          --sx: 14px;
+                          animation-duration: 7.7s;
+                          animation-delay: -3.7s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 67.9%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-6);
+                          --r: 348deg;
+                          --sx: 24px;
+                          animation-duration: 7.8s;
+                          animation-delay: -8.7s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 40.5%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-1);
+                          --r: 97deg;
+                          --sx: -24px;
+                          animation-duration: 7.9s;
+                          animation-delay: -4s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 44.4%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-5);
+                          --r: 0deg;
+                          --sx: -14px;
+                          animation-duration: 7.4s;
+                          animation-delay: -0.5s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 12.5%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-1);
+                          --r: 106deg;
+                          --sx: 24px;
+                          animation-duration: 8.5s;
+                          animation-delay: -0.7s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 62.6%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-6);
+                          --r: 59deg;
+                          --sx: 24px;
+                          animation-duration: 8.4s;
+                          animation-delay: -4.7s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 48.2%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-6);
+                          --r: 175deg;
+                          --sx: 14px;
+                          animation-duration: 6.3s;
+                          animation-delay: -1s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 80.9%;
+                          width: 10px;
+                          height: 10px;
+                          border-radius: 50%;
+                          background: var(--cd-1);
+                          --r: 270deg;
+                          --sx: 14px;
+                          animation-duration: 8.1s;
+                          animation-delay: -2.1s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 67.9%;
+                          width: 8px;
+                          height: 14px;
+                          border-radius: 2px;
+                          background: var(--cd-3);
+                          --r: 329deg;
+                          --sx: -24px;
+                          animation-duration: 9s;
+                          animation-delay: -3s;
+                        "
+                      ></i
+                      ><i
+                        style="
+                          left: 82.5%;
+                          width: 6px;
+                          height: 16px;
+                          border-radius: 2px;
+                          background: var(--cd-3);
+                          --r: 114deg;
+                          --sx: 14px;
+                          animation-duration: 9.6s;
+                          animation-delay: -3.6s;
+                        "
+                      ></i>
+                    </div>
+                    <div class="s-pd-phone">
+                      <div class="s-device">
+                        <div class="s-bezel">
+                          <div class="s-screen">
+                            <img
+                              src="assets/img/shot-streaks-1170.webp"
+                    srcset="assets/img/shot-streaks-400.webp 400w,
+                      assets/img/shot-streaks-800.webp 800w,
+                      assets/img/shot-streaks-1170.webp 1170w
+                    "
+                              alt="PharmTrack consultations screen listing six active treatments with the doctor, specialty and date of the last visit."
+                              sizes="(max-width: 760px) 226px, 257px"
+                              loading="lazy"
+                              decoding="async"
+                              width="1170"
+                              height="2532"
+                              class="s-shot"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </figure>
+              </div>
+              <div class="s-row s-flip c-mint">
+                <div class="s-row-copy">
+                  <h3 class="disp s-h3">See the trend, not just the number</h3>
+                  <p class="s-body">
+                    Log blood pressure, weight and blood sugar and watch the line move across the weeks. PharmTrack shows the direction of the change, so a quiet shift never hides inside a single reading.
+                  </p>
+                </div>
+                <figure
+                  class="s-row-art s-in-wrap"
+                  aria-label="PharmTrack vitals screen showing a blood pressure trend of 130 over 81 millimetres of mercury, down 1.5 percent over eight weeks."
+                  style="margin: 0"
+                >
+                  <div class="s-in" aria-hidden="true">
+                    <div class="s-in-phone">
+                      <div class="s-device">
+                        <div class="s-bezel">
+                          <div class="s-screen">
+                            <img
+                              src="assets/img/shot-insights-1170.webp"
+                    srcset="assets/img/shot-insights-400.webp 400w,
+                      assets/img/shot-insights-800.webp 800w,
+                      assets/img/shot-insights-1170.webp 1170w
+                    "
+                              alt="PharmTrack vitals screen showing a blood pressure trend of 130 over 81 millimetres of mercury, down 1.5 percent over eight weeks."
+                              sizes="(max-width: 760px) 226px, 257px"
+                              loading="lazy"
+                              decoding="async"
+                              width="1170"
+                              height="2532"
+                              class="s-shot"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="s-in-card c1"><b>130/81</b> mmHg — latest blood pressure</div>
+                    <div class="s-in-card c2"><span class="s-in-ic">🔥</span>Longest dose streak: 12 days</div>
+                    <div class="s-in-card c3"><span class="s-in-ic">🔥</span>Morning routine is on a roll, 6 days</div>
+                  </div>
+                </figure>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="pricing" class="s-wrap s-get-wrap" aria-labelledby="get-title">
+          <div class="s-get">
+            <svg class="s-get-swirl" viewBox="0 0 800 600" aria-hidden="true">
+              <path
+                d="M120 640C40 470 90 250 260 200S520 300 470 430 230 520 250 330 470 60 640 120"
+                fill="none"
+                stroke="#ffffff"
+                stroke-width="56"
+                stroke-linecap="round"
+                opacity=".35"
+              ></path>
+            </svg>
+            <div class="s-mq" aria-hidden="true">
+              <div class="s-mq-track">
+                <div class="s-mq-seq">
+                  <span>Own your doses</span
+                  ><span class="s-mq-tile" style="background: var(--cd-4); color: var(--cd-4-ink)"
+                    ><svg class="ic" width="34" height="34"><use href="#i-sun"></use></svg></span
+                  ><span>Never miss a dose</span
+                  ><span class="s-mq-tile" style="background: var(--cd-1); color: #fff"
+                    ><svg class="ic" width="34" height="34"><use href="#i-dumbbell"></use></svg></span
+                  ><span>Private by design</span
+                  ><span class="s-mq-tile" style="background: var(--cd-3); color: #fff"
+                    ><svg class="ic" width="34" height="34"><use href="#i-bell"></use></svg></span
+                  ><span>Works offline</span
+                  ><span class="s-mq-tile" style="background: var(--cd-2); color: #fff"
+                    ><svg class="ic" width="34" height="34"><use href="#i-flame-fill"></use></svg
+                  ></span>
+                </div>
+                <div class="s-mq-seq">
+                  <span>Own your doses</span
+                  ><span class="s-mq-tile" style="background: var(--cd-4); color: var(--cd-4-ink)"
+                    ><svg class="ic" width="34" height="34"><use href="#i-sun"></use></svg></span
+                  ><span>Never miss a dose</span
+                  ><span class="s-mq-tile" style="background: var(--cd-1); color: #fff"
+                    ><svg class="ic" width="34" height="34"><use href="#i-dumbbell"></use></svg></span
+                  ><span>Private by design</span
+                  ><span class="s-mq-tile" style="background: var(--cd-3); color: #fff"
+                    ><svg class="ic" width="34" height="34"><use href="#i-bell"></use></svg></span
+                  ><span>Works offline</span
+                  ><span class="s-mq-tile" style="background: var(--cd-2); color: #fff"
+                    ><svg class="ic" width="34" height="34"><use href="#i-flame-fill"></use></svg
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <div class="s-ci-pile" aria-hidden="true">
+              <span class="s-ci" style="left: 2%; bottom: calc(0 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-sun"></use></svg></span
+              ><span class="s-ci" style="left: 16%; bottom: calc(0 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-calendar-check"></use></svg></span
+              ><span class="s-ci" style="left: 30%; bottom: calc(0 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-flame-fill"></use></svg></span
+              ><span class="s-ci" style="left: 44%; bottom: calc(0 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-dumbbell"></use></svg></span
+              ><span class="s-ci" style="left: 9%; bottom: calc(1 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-moon"></use></svg></span
+              ><span class="s-ci" style="left: 23%; bottom: calc(1 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-bell"></use></svg></span
+              ><span class="s-ci" style="left: 37%; bottom: calc(1 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-trophy"></use></svg></span
+              ><span class="s-ci" style="left: 16%; bottom: calc(2 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-clock"></use></svg></span
+              ><span class="s-ci" style="left: 30%; bottom: calc(2 * 86px + 24px)"
+                ><svg class="ic" width="34" height="34"><use href="#i-list-checks"></use></svg
+              ></span>
+            </div>
+            <div class="s-get-cta">
+              <h2 id="get-title" class="disp s-get-h">Free, and it stays free</h2>
+              <p class="s-get-p">
+                PharmTrack costs nothing on either store. No subscription, no in-app purchase, no ads — and no account to create before you use it.
+              </p>
+              <div class="s-get-badges">
+                <a class="s-store-btn dark" href="https://apps.apple.com/us/app/pharmtrack/id6760744803" target="_blank" rel="noopener">
+                  <svg class="ic" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.841.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path></svg>
+                  <span>Download on the App Store</span>
+                </a>
+                <a class="s-store-btn" href="https://play.google.com/store/apps/details?id=com.tunnxo.medtrack" target="_blank" rel="noopener">
+                  <svg class="ic" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.8 2.6 17.4 12 4.8 21.4V2.6z"></path></svg>
+                  <span>Get it on Google Play</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="faq" class="s-wrap s-sec" aria-labelledby="faq-title">
+          <div class="s-faq">
+            <div class="s-faq-side">
+              <h2 id="faq-title" class="disp s-h2">Good to know</h2>
+              <p class="s-body">
+                Something else on your mind? Write to <a href="mailto:support@pharmtrack.app">support@pharmtrack.app</a>.
+              </p>
+            </div>
+            <div>
+              <details class="s-qa" open>
+                <summary>
+                  <span>Is PharmTrack really free?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>
+                  Yes, completely. There is no subscription, no in-app purchase and no advertising — and no feature is held back. Download it, install it, and everything is unlocked.
+                </p>
+              </details>
+              <details class="s-qa">
+                <summary>
+                  <span>Do I need an account to use it?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>
+                  No. There is no sign-up and no login. You install the app, and your records stay on your device. Uninstalling removes them for good — there is no cloud copy to restore from.
+                </p>
+              </details>
+              <details class="s-qa">
+                <summary>
+                  <span>Where is my health data stored?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>
+                  On your phone, in the app's own sandboxed storage. It never travels to a server, because there is no server. The only copy that exists is the one on your device.
+                </p>
+              </details>
+              <details class="s-qa">
+                <summary>
+                  <span>Does it work without internet?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>
+                  Yes — everything does. The app never needs a network connection, so it works in a basement, on a plane, or wherever your signal does not.
+                </p>
+              </details>
+              <details class="s-qa">
+                <summary>
+                  <span>Can it track more than medication?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>Much more. PharmTrack also keeps consultations with their notes and treatments, upcoming appointments, and readings for blood pressure, weight and blood sugar.</p>
+              </details>
+              <details class="s-qa">
+                <summary>
+                  <span>Can PharmTrack replace my doctor?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>
+                  Yes. No, and it is not meant to. PharmTrack is a record-keeping and reminder tool, not a medical device. It does not diagnose or treat anything — always talk to your doctor before you change how you take a medication.
+                </p>
+              </details>
+              <details class="s-qa">
+                <summary>
+                  <span>Do you collect or share my data?</span
+                  ><svg class="ic s-caret" width="20" height="20" aria-hidden="true"><use href="#i-chev-r"></use></svg>
+                </summary>
+                <p>
+                  No. No analytics, no advertising identifiers, no third-party tracking of any kind. The <a href="/privacy.html">Privacy Policy</a> has the details.
+                </p>
+              </details>
+            </div>
+          </div>
+        </section>
+      </main>
+      <footer class="s-ft">
+        <div class="s-ft-card">
+          <div class="s-ft-top">
+            <div class="s-foot">
+              <div class="s-foot-about">
+                <a class="s-brand" href="/" aria-label="PharmTrack home"
+                  ><img src="assets/img/mark.png" width="32" height="32" alt="" style="border-radius: 7.2px; flex-shrink: 0" /><span class="disp" style="font-size: 21px; font-weight: 800; letter-spacing: -0.02em"
+                    >PharmTrack</span
+                  ></a
+                >
+                <p>Your personal medication and health management assistant. Works offline, stores everything on your device, and asks for nothing in return.</p>
+              </div>
+              <nav class="s-foot-cols" aria-label="Footer">
+                <div>
+                  <h2 class="s-foot-h">PharmTrack</h2>
+                  <ul>
+                    <li><a href="/#features">Features</a></li>
+                    <li><a href="/#pricing">Pricing</a></li>
+                    <li><a href="/#faq">FAQ</a></li><li><a href="/#pricing">Download</a></li>
+                  </ul>
+                </div>
+                <div>
+                  <h2 class="s-foot-h">Help</h2>
+                  <ul>
+                    <li><a href="/support.html">Support</a></li>
+                    <li><a href="mailto:support@pharmtrack.app">support@pharmtrack.app</a></li>
+                    <li><a href="/delete-account.html">Delete your account</a></li>
+                  </ul>
+                </div>
+                <div>
+                  <h2 class="s-foot-h">Legal</h2>
+                  <ul>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                  </ul>
+                </div>
+              </nav>
+            </div>
+          </div>
+          <div class="s-ft-art">
+            <svg class="s-ft-ill" viewBox="0 0 1360 330" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+              <g transform="translate(70 18) rotate(-8 70 190)">
+                <path
+                  d="M60 70C20 40 0 70 10 100c20 10 40 0 50-30Z"
+                  fill="rgba(197,236,220,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M64 66C90 20 130 30 128 62c-20 18-46 18-64 4Z"
+                  fill="rgba(169,226,203,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M58 76C40 20 70-10 90 10c4 30-10 50-32 66Z"
+                  fill="rgba(216,243,232,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M62 80C100 70 130 100 112 128c-24 4-42-12-50-48Z"
+                  fill="rgba(197,236,220,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M24 120h90l-10 70H34Z"
+                  fill="rgba(255,255,255,.5)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <rect
+                  x="16"
+                  y="108"
+                  width="106"
+                  height="20"
+                  rx="6"
+                  fill="rgba(255,255,255,.5)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+              </g>
+              <g transform="translate(10 248) rotate(-6)">
+                <rect
+                  x="0"
+                  y="0"
+                  width="300"
+                  height="190"
+                  rx="10"
+                  fill="rgba(255,255,255,.42)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+                <path
+                  d="M150 0v190"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M24 34h96M24 60h80M24 86h100M24 112h70"
+                  stroke="#dcedea"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                ></path>
+                <g fill="none" stroke="#9ec9c3" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+                  <rect x="170" y="26" width="16" height="16" rx="4"></rect>
+                  <rect x="170" y="58" width="16" height="16" rx="4"></rect>
+                  <rect x="170" y="90" width="16" height="16" rx="4"></rect>
+                </g>
+                <path
+                  d="M173 34l4 4 7-8M173 66l4 4 7-8"
+                  fill="none"
+                  stroke="#6fb0a8"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M196 34h70M196 66h56M196 98h64"
+                  stroke="#dcedea"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                ></path>
+              </g>
+              <g transform="translate(262 222) rotate(32)">
+                <rect
+                  x="0"
+                  y="0"
+                  width="22"
+                  height="150"
+                  rx="6"
+                  fill="rgba(255,255,255,.5)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+                <path
+                  d="M0 150l11 26 11-26Z"
+                  fill="rgba(255,255,255,.42)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+                <path d="M7 166l4 10 4-10Z" fill="#b6d7d1"></path>
+                <rect
+                  x="0"
+                  y="0"
+                  width="22"
+                  height="20"
+                  rx="6"
+                  fill="rgba(255,226,166,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+              </g>
+              <g transform="translate(400 150)">
+                <g stroke="#6fb0a8" stroke-width="7" stroke-linecap="round">
+                  <path d="M0-96v-18M68-68l13-13M96 0h18M-68-68l-13-13M-96 0h-18"></path>
+                </g>
+                <circle
+                  r="78"
+                  fill="rgba(255,255,255,.5)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></circle>
+                <circle
+                  r="62"
+                  fill="rgba(255,255,255,.42)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></circle>
+                <path d="M0 0V-38M0 0l26 16" stroke="#9ec9c3" stroke-width="5" stroke-linecap="round"></path>
+                <circle r="6" fill="#6fb0a8"></circle>
+                <path d="M-60 66l-14 18M60 66l14 18" stroke="#9ec9c3" stroke-width="6" stroke-linecap="round"></path>
+              </g>
+              <g transform="translate(560 50) rotate(-10)">
+                <rect
+                  x="0"
+                  y="0"
+                  width="240"
+                  height="430"
+                  rx="38"
+                  fill="rgba(255,255,255,.75)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+                <rect x="10" y="10" width="220" height="410" rx="30" fill="rgba(255,255,255,.5)"></rect>
+                <rect x="92" y="20" width="56" height="14" rx="7" fill="rgba(255,255,255,.75)"></rect>
+                <text
+                  x="26"
+                  y="72"
+                  font-family="Bricolage Grotesque Variable, sans-serif"
+                  font-weight="800"
+                  font-size="24"
+                  fill="rgba(140,70,40,.45)"
+                  letter-spacing="-.5"
+                >
+                  Today
+                </text>
+                <g transform="translate(12 92)">
+                  <rect
+                    x="14"
+                    y="0"
+                    width="200"
+                    height="28"
+                    rx="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="2"
+                  ></rect>
+                  <rect x="22" y="6" width="16" height="16" rx="5" fill="rgba(255,226,166,.55)"></rect>
+                  <rect x="46" y="8" width="72" height="5" rx="2.5" fill="rgba(255,255,255,.75)" opacity=".75"></rect>
+                  <rect x="46" y="17" width="48" height="4" rx="2" fill="#c6d6d2" opacity=".6"></rect>
+                  <circle
+                    cx="198"
+                    cy="14"
+                    r="8"
+                    fill="rgba(255,255,255,.75)"
+                    stroke="#9ec9c3"
+                    stroke-width="3"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  ></circle>
+                  <path d="M194 14l3 3 6-6" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"></path>
+                  <rect
+                    x="14"
+                    y="38"
+                    width="200"
+                    height="28"
+                    rx="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="2"
+                  ></rect>
+                  <rect x="22" y="44" width="16" height="16" rx="5" fill="rgba(255,255,255,.5)"></rect>
+                  <rect x="46" y="46" width="72" height="5" rx="2.5" fill="rgba(255,255,255,.75)" opacity=".75"></rect>
+                  <rect x="46" y="55" width="48" height="4" rx="2" fill="#c6d6d2" opacity=".6"></rect>
+                  <circle
+                    cx="198"
+                    cy="52"
+                    r="8"
+                    fill="rgba(255,255,255,.75)"
+                    stroke="#9ec9c3"
+                    stroke-width="3"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  ></circle>
+                  <path d="M194 52l3 3 6-6" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"></path>
+                  <rect
+                    x="14"
+                    y="76"
+                    width="200"
+                    height="28"
+                    rx="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="2"
+                  ></rect>
+                  <rect x="22" y="82" width="16" height="16" rx="5" fill="#d6c9fa"></rect>
+                  <rect x="46" y="84" width="72" height="5" rx="2.5" fill="rgba(255,255,255,.75)" opacity=".75"></rect>
+                  <rect x="46" y="93" width="48" height="4" rx="2" fill="#c6d6d2" opacity=".6"></rect>
+                  <circle
+                    cx="198"
+                    cy="90"
+                    r="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="3"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  ></circle>
+                  <rect
+                    x="14"
+                    y="114"
+                    width="200"
+                    height="28"
+                    rx="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="2"
+                  ></rect>
+                  <rect x="22" y="120" width="16" height="16" rx="5" fill="rgba(169,226,203,.55)"></rect>
+                  <rect x="46" y="122" width="72" height="5" rx="2.5" fill="rgba(255,255,255,.75)" opacity=".75"></rect>
+                  <rect x="46" y="131" width="48" height="4" rx="2" fill="#c6d6d2" opacity=".6"></rect>
+                  <circle
+                    cx="198"
+                    cy="128"
+                    r="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="3"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  ></circle>
+                  <rect
+                    x="14"
+                    y="152"
+                    width="200"
+                    height="28"
+                    rx="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="2"
+                  ></rect>
+                  <rect x="22" y="158" width="16" height="16" rx="5" fill="#c3e0f6"></rect>
+                  <rect x="46" y="160" width="72" height="5" rx="2.5" fill="rgba(255,255,255,.75)" opacity=".75"></rect>
+                  <rect x="46" y="169" width="48" height="4" rx="2" fill="#c6d6d2" opacity=".6"></rect>
+                  <circle
+                    cx="198"
+                    cy="166"
+                    r="8"
+                    fill="rgba(255,255,255,.55)"
+                    stroke="#9ec9c3"
+                    stroke-width="3"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  ></circle>
+                </g>
+                <circle cx="196" cy="384" r="18" fill="#6fb0a8"></circle>
+                <path d="M196 376v16M188 384h16" stroke="#fff" stroke-width="3.5" stroke-linecap="round"></path>
+              </g>
+              <g transform="translate(960 120)">
+                <circle
+                  r="86"
+                  fill="rgba(220,245,235,.45)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></circle>
+                <circle
+                  r="58"
+                  fill="rgba(255,255,255,.42)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></circle>
+                <circle
+                  r="44"
+                  fill="rgba(200,150,120,.4)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></circle>
+                <path
+                  d="M-18-14c10-8 26-6 34 4"
+                  stroke="#dcedea"
+                  stroke-width="5"
+                  fill="none"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M56 -14c26-4 34 32 4 30"
+                  fill="none"
+                  stroke="#9ec9c3"
+                  stroke-width="12"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M56 -14c26-4 34 32 4 30"
+                  fill="none"
+                  stroke="#fffaf5"
+                  stroke-width="6"
+                  stroke-linecap="round"
+                ></path>
+              </g>
+              <g transform="translate(1090 170) rotate(8)">
+                <rect
+                  width="130"
+                  height="130"
+                  rx="10"
+                  fill="rgba(255,226,166,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+                <path
+                  d="M22 36l7 7 13-14M22 74l7 7 13-14"
+                  fill="none"
+                  stroke="#9ec9c3"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M56 38h50M56 76h40M22 108h70"
+                  stroke="#9ec9c3"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  opacity=".5"
+                ></path>
+              </g>
+              <g transform="translate(1180 250) rotate(-10)">
+                <rect
+                  width="120"
+                  height="110"
+                  rx="10"
+                  fill="rgba(255,255,255,.42)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+                <path
+                  d="M20 34h70M20 58h54"
+                  stroke="#9ec9c3"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  opacity=".5"
+                ></path>
+              </g>
+              <g transform="translate(1250 40) rotate(10)">
+                <rect
+                  width="96"
+                  height="96"
+                  rx="24"
+                  fill="rgba(255,255,255,.55)"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></rect>
+                <path
+                  d="M48 18c18 18 24 32 14 50a18 18 0 0 1-30-6c-4-12 6-20 8-30 4 6 6 10 8 12 2-10 2-18 0-26Z"
+                  fill="#6fb0a8"
+                  stroke="#9ec9c3"
+                  stroke-width="3"
+                  stroke-linejoin="round"
+                  stroke-linecap="round"
+                ></path>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </footer>
+    </div>
+  <script type="module" src="assets/js/landing.js"></script>
   </body>
 </html>

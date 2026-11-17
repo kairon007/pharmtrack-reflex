@@ -1,73 +1,85 @@
-# React + TypeScript + Vite
+# PharmTrack marketing site
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The PharmTrack landing page and legal pages. Static HTML, plain CSS, one
+small JavaScript module — no framework, no runtime dependencies.
 
-Currently, two official plugins are available:
+Built with the Timmly landing design system, rebranded to PharmTrack's teal.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+web/
+├── index.html              the landing page
+├── privacy.html            privacy policy
+├── terms.html              terms of service
+├── eula.html               end user license agreement
+├── support.html            help and bug reports
+├── delete-account.html     how to delete your local data
+├── assets/
+│   ├── css/                base + shell + sections (the design system)
+│   ├── js/landing.js       the motion module
+│   ├── fonts/              9 OFL webfont files
+│   └── img/                app screenshots, brand mark, OG image
+├── public/_redirects       Netlify rewrites
+└── tools/                  the build pipeline (see below)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Commands
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Command | What it does |
+|---|---|
+| `npm run dev` | Vite dev server on the source pages |
+| `npm run build` | Regenerates the pages, then builds `dist/` |
+| `npm run build:page` | Regenerates `index.html` and the stylesheets only |
+| `npm run build:legal` | Regenerates the five prose pages only |
+| `npm run preview` | Serves the built `dist/` |
+| `npm run check` | Pre-ship check on the source |
+| `npm run check:dist` | The same check on the built output |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## How the page is built
+
+The design system is never edited in place. `tools/design-system/` holds a
+pristine copy of the upstream CSS, motion module and page skeleton, and
+`tools/build-page.py` regenerates `assets/css`, `assets/js/landing.js` and
+`index.html` from it on every run.
+
+That script owns three things:
+
+1. **The rebrand.** The upstream palette is warm; PharmTrack's is teal. The
+   token values come from `ios/Sources/App/Theme.swift`, so the page and the
+   app are the same brand. Edit the `REBRAND` and `HTML_REBRAND` tables there,
+   not the stylesheets.
+2. **The copy.** Every placeholder token in the skeleton is filled from the
+   `TOKENS` table.
+3. **The sample data.** The mockups carry literal strings — the upcoming
+   event cards, the dose timeline, the lock screen, the insight cards. Those
+   are rewritten in the `LITERALS` table. Each entry must match exactly once,
+   so the build fails loudly if the skeleton moves underneath it.
+
+`tools/build-legal.py` does the same for the five prose pages; the legal copy
+is carried over verbatim from the pages the old React site shipped.
+
+`tools/check-page.mjs` is the pre-ship gate: it fails on a broken local
+reference, a missing `url()` target, an unfilled placeholder, leftover
+reference-brand copy, or a missing device-mockup rule.
+
+## Screenshots
+
+`tools/screenshots/` holds the four app screenshots at 1170 × 2532 (3× the
+390 × 844 device frame the mockups use). They were captured from the 1.0 iOS
+build running in the simulator, seeded with realistic data. The build renders
+the 400 / 800 / 1170 webp derivatives into `assets/img/`.
+
+To re-shoot them: build and run the iOS app, seed `medical_data.json` into
+the simulator's app container, walk the four screens and capture with
+`xcrun simctl io <udid> screenshot`.
+
+## Deploying
+
+`npm run build` writes `dist/`. Netlify publishes that directory
+(`.github/workflows/deploy-netlify.yml`). The extensionless routes
+(`/privacy`, `/terms`, `/eula`, `/support`, `/delete-account`) are mapped in
+`public/_redirects`.
+
+## `web/_legacy_html/`
+
+The previous static site, kept for reference. It is not part of the build and
+not published.

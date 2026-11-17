@@ -1,0 +1,37 @@
+Bundled webfonts and their licences
+==================================
+
+The nine files in references/fonts/ are subsets of three open-source typefaces.
+All three are licensed under the SIL Open Font License, Version 1.1, which
+permits bundling, redistribution and commercial use, including embedding in a
+web page. The OFL requires that the fonts are not sold on their own and that
+any derivative retains the licence; no modification was made here beyond
+subsetting to the unicode ranges the page needs.
+
+  Bricolage Grotesque Variable
+    files: bricolage-grotesque-latin-opsz-normal.Cre6nC2_.woff2
+           bricolage-grotesque-latin-ext-opsz-normal.IcJDqblK.woff2
+           bricolage-grotesque-vietnamese-opsz-normal.D9N6E8K1.woff2
+    licence: SIL Open Font License 1.1
+    (variable weight 200-800, optical-size axis)
+
+  Instrument Sans Variable
+    files: instrument-sans-latin-wght-normal.BbzFLZTg.woff2
+           instrument-sans-latin-ext-wght-normal.B5bTHO_g.woff2
+    licence: SIL Open Font License 1.1
+    (variable weight 400-700)
+
+  Instrument Serif
+    files: instrument-serif-latin-400-italic.DKMiL14s.woff2
+           instrument-serif-latin-400-italic.u__WvvIK.woff
+           instrument-serif-latin-ext-400-italic.C9HzH3YL.woff2
+           instrument-serif-latin-ext-400-italic.D7-lnxEk.woff
+    licence: SIL Open Font License 1.1
+    (italic 400)
+
+Full licence text: https://openfontlicense.org
+
+If you swap in a different typeface, check its licence before shipping. Google
+Fonts is a reliable source of OFL-licensed families; note that a substitute
+served from a CDN may render with slightly different metrics than a locally
+bundled subset, which changes line breaks in the display type.
